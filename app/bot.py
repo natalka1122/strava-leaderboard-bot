@@ -15,7 +15,7 @@ from datetime import datetime
 
 import schedule
 
-from config import CLUB_ID, SCHEDULE_TIME, SCHEDULE_DAY, OUTPUT_DIR, STRAVA_SESSION_COOKIE, LEADERBOARD_PER_PAGE
+from config import CLUB_ID, SCHEDULE_TIME, SCHEDULE_DAY, OUTPUT_DIR, STRAVA_SESSION_COOKIE, LEADERBOARD_MIN_RUNNERS, LEADERBOARD_KM_CUTOFF
 from strava_scraper import get_leaderboard_entries
 from image_generator import generate
 from telegram_client import send_to_telegram
@@ -35,8 +35,10 @@ def fetch_and_save() -> None:
 
     # 1. Fetch leaderboard
     log.info("Fetching leaderboard from Strava web API …")
+    # Fetch extra to ensure we capture everyone ≥ 30km
+    fetch_limit = max(LEADERBOARD_MIN_RUNNERS, 50)
     try:
-        entries = get_leaderboard_entries(per_page=LEADERBOARD_PER_PAGE)
+        entries = get_leaderboard_entries(per_page=fetch_limit)
     except RuntimeError as e:
         log.error("%s", e)
         return
@@ -44,6 +46,14 @@ def fetch_and_save() -> None:
     if not entries:
         log.warning("Empty leaderboard — nothing to send")
         return
+
+    # 2. Apply dynamic cutoff: at least N, or all ≥ cutoff km
+    cutoff_m = LEADERBOARD_KM_CUTOFF * 1000
+    km_cutoff_count = sum(1 for e in entries if (e.get("distance") or 0) >= cutoff_m)
+    limit = max(LEADERBOARD_MIN_RUNNERS, km_cutoff_count)
+    if len(entries) > limit:
+        entries = entries[:limit]
+        log.info("Truncated to %d rows (%d ran ≥ %dkm)", limit, km_cutoff_count, LEADERBOARD_KM_CUTOFF)
 
     # 2. Generate image
     log.info("%d athletes — generating image …", len(entries))
