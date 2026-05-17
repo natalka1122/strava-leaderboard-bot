@@ -1,0 +1,7 @@
+services:
+  strava-bot:
+    build: .
+    env_file: .env
+    volumes:
+      - ./leaderboard_output:/app/leaderboard_output
+    restart: unless-stopped
