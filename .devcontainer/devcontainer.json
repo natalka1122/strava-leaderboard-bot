@@ -1,0 +1,60 @@
+{
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": "..",
+        "args": {
+            "MY_OPENROUTER_API_KEY": "${localEnv:MY_OPENROUTER_API_KEY}"
+        }
+    },
+    "mounts": [
+        "source=/mnt/c/Users/NataliaKonovalova/.ssh_github,target=/home/vscode/.ssh,type=bind,consistency=cached"
+    ],    
+    "remoteEnv": {
+        "TZ": "Europe/Budapest",
+        "STRAVA_SESSION_COOKIE": "${localEnv:STRAVA_SESSION_COOKIE}",
+        "STRAVA_CLUB_ID": "${localEnv:STRAVA_CLUB_ID}"
+    },
+    "postStartCommand": "bash .devcontainer/post_start_command.sh",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.black-formatter",
+                "charliermarsh.ruff",
+                "janjoerke.jenkins-pipeline-linter-connector",
+                "mechatroner.rainbow-csv",
+                "ryu1kn.partial-diff",
+                "NicolasVuillamy.vscode-groovy-lint",
+                "ms-python.mypy-type-checker",
+                "ms-vscode.hexeditor",
+                "ms-python.flake8",
+                "ms-azuretools.vscode-containers"
+            ],
+            "settings": {
+                // "[python]": {
+                //     "editor.defaultFormatter": "charliermarsh.ruff"
+                // },
+                "remote.localPortHost": "allInterfaces",
+                "remote.autoForwardPorts": false,
+                "mypy-type-checker.args": [
+                    "--check-untyped-defs",
+                    "--strict",
+                    "--follow-untyped-imports"
+                ],
+                "mypy-type-checker.executable": "/usr/local/bin/mypy",
+                "python.analysis.diagnosticSeverityOverrides": {
+                    "reportUnusedImport": "warning",
+                    "reportUnusedVariable": "warning"
+                },
+                // "editor.defaultFormatter": "charliermarsh.ruff",
+                "github.copilot.enable": {
+                    "*": false,
+                    "plaintext": false,
+                    "markdown": false,
+                    "scminput": false
+                },
+                "python.analysis.typeCheckingMode": "strict"
+            }
+        }
+    }
+}

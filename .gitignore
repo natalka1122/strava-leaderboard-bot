@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+leaderboard_output/
+.mypy_cache/
+to_delete/
+.pi/
+*.jsonl
