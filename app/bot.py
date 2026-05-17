@@ -15,7 +15,7 @@ from datetime import datetime
 
 import schedule
 
-from config import CLUB_ID, SCHEDULE_TIME, SCHEDULE_DAY, OUTPUT_DIR, STRAVA_SESSION_COOKIE
+from config import CLUB_ID, SCHEDULE_TIME, SCHEDULE_DAY, OUTPUT_DIR, STRAVA_SESSION_COOKIE, LEADERBOARD_PER_PAGE
 from strava_scraper import get_leaderboard_entries
 from image_generator import generate
 from telegram_client import send_to_telegram
@@ -36,7 +36,7 @@ def fetch_and_save() -> None:
     # 1. Fetch leaderboard
     log.info("Fetching leaderboard from Strava web API …")
     try:
-        entries = get_leaderboard_entries(per_page=20)
+        entries = get_leaderboard_entries(per_page=LEADERBOARD_PER_PAGE)
     except RuntimeError as e:
         log.error("%s", e)
         return

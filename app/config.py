@@ -15,6 +15,7 @@ SCHEDULE_DAY = os.getenv("SCHEDULE_DAY", "monday")
 
 # Output
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "leaderboard_output")
+LEADERBOARD_PER_PAGE = int(os.getenv("LEADERBOARD_PER_PAGE", "20"))
 
 # Telegram
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
