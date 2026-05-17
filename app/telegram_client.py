@@ -4,7 +4,7 @@ Supports supergroup topics via TELEGRAM_THREAD_ID.
 """
 import logging
 import requests
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_THREAD_ID
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_THREAD_ID, TELEGRAM_CAPTION
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ def send_to_telegram(image_path: str) -> bool:
 
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
-        "caption": "Вот лидерборд этой недели! 🏃‍♂️🔥",
+        "caption": TELEGRAM_CAPTION,
         "parse_mode": "HTML",
     }
     if TELEGRAM_THREAD_ID:

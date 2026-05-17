@@ -14,7 +14,8 @@ RUN apt-get update && \
         tcpdump \
         redis-tools \
         netcat-openbsd \
-        dnsutils && \
+        dnsutils \
+        gh && \
     add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
