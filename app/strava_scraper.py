@@ -68,3 +68,25 @@ def get_leaderboard_entries(per_page: int = 20) -> list[dict]:
         entries.append(entry)
 
     return entries
+
+
+def check_cookie() -> int:
+    """Quick health check: fetch leaderboard with per_page=1, no redirects.
+    Returns the HTTP status code (200 = valid, 302/401 = expired, 0 = network error)."""
+    url = f"https://www.strava.com/clubs/{CLUB_ID}/leaderboard"
+    headers = {
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": url,
+    }
+    try:
+        resp = _session().get(
+            url, params={"per_page": 1, "page": 1},
+            headers=headers,
+            allow_redirects=False,
+            timeout=15,
+        )
+        return resp.status_code
+    except requests.RequestException as e:
+        logger.warning("Cookie check request failed: %s", e)
+        return 0

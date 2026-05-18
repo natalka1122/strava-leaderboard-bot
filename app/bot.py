@@ -15,10 +15,11 @@ from datetime import datetime
 
 import schedule
 
-from config import CLUB_ID, SCHEDULE_TIME, SCHEDULE_DAY, OUTPUT_DIR, STRAVA_SESSION_COOKIE, LEADERBOARD_MIN_RUNNERS, LEADERBOARD_KM_CUTOFF
+from config import CLUB_ID, SCHEDULE_TIME, SCHEDULE_DAY, OUTPUT_DIR, STRAVA_SESSION_COOKIE, LEADERBOARD_MIN_RUNNERS, LEADERBOARD_KM_CUTOFF, LEADERBOARD_FAILURE_MESSAGE
 from strava_scraper import get_leaderboard_entries
 from image_generator import generate
-from telegram_client import send_to_telegram
+from telegram_client import send_to_telegram, send_group_message
+from cookie_health_check import start_health_check
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,6 +42,8 @@ def fetch_and_save() -> None:
         entries = get_leaderboard_entries(per_page=fetch_limit)
     except RuntimeError as e:
         log.error("%s", e)
+        if LEADERBOARD_FAILURE_MESSAGE:
+            send_group_message(LEADERBOARD_FAILURE_MESSAGE)
         return
 
     if not entries:
@@ -82,7 +85,10 @@ def main() -> None:
     log.info("║   Telegram:  enabled                     ║")
     log.info("╚══════════════════════════════════════════╝")
 
-    # First run immediately
+    # Start cookie health check (runs immediately + on interval)
+    start_health_check()
+
+    # First weekly run immediately
     fetch_and_save()
 
     # Schedule weekly
