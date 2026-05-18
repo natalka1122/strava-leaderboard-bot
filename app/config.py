@@ -23,3 +23,11 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 TELEGRAM_THREAD_ID = int(os.getenv("TELEGRAM_THREAD_ID", "0") or 0)
 TELEGRAM_CAPTION = os.getenv("TELEGRAM_CAPTION", "Weekly club leaderboard")
+
+# Cookie health check
+TELEGRAM_ALERT_IDS = [x.strip() for x in os.getenv("TELEGRAM_ALERT_IDS", "").split(",") if x.strip()]
+COOKIE_CHECK_INTERVAL_MINUTES = int(os.getenv("COOKIE_CHECK_INTERVAL_MINUTES", "180"))
+LEADERBOARD_FAILURE_MESSAGE = os.getenv(
+    "LEADERBOARD_FAILURE_MESSAGE",
+    "К сожалению, токен Strava истёк, и админы ещё не обновили его. Лидерборд на этой неделе не сформирован. Свяжитесь с админами, чтобы исправить."
+)
