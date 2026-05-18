@@ -15,7 +15,9 @@ RUN apt-get update && \
         redis-tools \
         netcat-openbsd \
         dnsutils \
-        gh && \
+        gh \
+        fd-find \
+        ripgrep && \
     add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
