@@ -12,6 +12,9 @@ chmod 600 ~/.ssh/* || true
 # Restore pi agent sessions
 ln -s /workspaces/strava/.pi/sessions /home/vscode/.pi/agent/sessions
 
+# Fix gh permissions (credential mount)
+sudo chown -R vscode:vscode ~/.config/gh 2>/dev/null || true
+
 # -----------------------------------------------------------
 # Install Matt Pocock's skills (latest, plugin-filtered)
 # -----------------------------------------------------------
