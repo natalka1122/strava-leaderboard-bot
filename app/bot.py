@@ -8,6 +8,7 @@ Every Sunday 23:00 Budapest time:
   3. Saves it to leaderboard_output/
   4. Sends it to a Telegram group chat
 """
+import argparse
 import logging
 import os
 import time
@@ -28,8 +29,11 @@ logging.basicConfig(
 log = logging.getLogger("strava-bot")
 
 
-def fetch_and_save() -> None:
-    """One full run: fetch → generate → save → send to Telegram."""
+def fetch_and_save(dry_run: bool = False) -> None:
+    """One full run: fetch → generate → save → (optionally) send to Telegram.
+
+    When dry_run is True, all Telegram posting is skipped.
+    """
     if not STRAVA_SESSION_COOKIE:
         log.error("STRAVA_SESSION_COOKIE is not set.")
         return
@@ -43,7 +47,10 @@ def fetch_and_save() -> None:
     except RuntimeError as e:
         log.error("%s", e)
         if LEADERBOARD_FAILURE_MESSAGE:
-            send_group_message(LEADERBOARD_FAILURE_MESSAGE)
+            if dry_run:
+                log.info("[DRY-RUN] Would send failure message to group chat")
+            else:
+                send_group_message(LEADERBOARD_FAILURE_MESSAGE)
         return
 
     if not entries:
@@ -69,30 +76,42 @@ def fetch_and_save() -> None:
     img.save(path, quality=95)
     log.info("Saved → %s (%d rows, %.1f KB)", path, len(entries), os.path.getsize(path) / 1024)
 
-    # 4. Send to Telegram
-    sent = send_to_telegram(path)
-    if sent:
-        log.info("✅ Leaderboard posted to Telegram group!")
+    # 4. Send to Telegram (skip in dry-run mode)
+    if dry_run:
+        log.info("[DRY-RUN] Skipping Telegram post — image saved locally")
     else:
-        log.warning("⚠️ Image saved locally but Telegram send failed")
+        sent = send_to_telegram(path)
+        if sent:
+            log.info("✅ Leaderboard posted to Telegram group!")
+        else:
+            log.warning("⚠️ Image saved locally but Telegram send failed")
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Strava Leaderboard Bot")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Fetch and generate image but skip Telegram posting",
+    )
+    args, _ = parser.parse_known_args()
+
     log.info("╔══════════════════════════════════════════╗")
     log.info("║   Strava Bot  –  Weekly Leaderboard     ║")
     log.info("║   Club: БББП  #%d                 ║", CLUB_ID)
     log.info("║   Schedule: every %s at %s Budapest   ║", SCHEDULE_DAY, SCHEDULE_TIME)
-    log.info("║   Telegram:  enabled                     ║")
+    log.info("║   Telegram:  %s                    ║", "DRY-RUN" if args.dry_run else "enabled")
     log.info("╚══════════════════════════════════════════╝")
 
     # Start cookie health check (runs immediately + on interval)
     start_health_check()
 
-    # First weekly run immediately
-    fetch_and_save()
+    # First run immediately — always dry-run to avoid spam on restart
+    fetch_and_save(dry_run=True)
 
-    # Schedule weekly
-    getattr(schedule.every(), SCHEDULE_DAY).at(SCHEDULE_TIME).do(fetch_and_save)
+    # Schedule weekly — respects the --dry-run flag for real runs
+    getattr(schedule.every(), SCHEDULE_DAY).at(SCHEDULE_TIME).do(fetch_and_save, dry_run=args.dry_run)
     log.info("Scheduler active — next run: next %s at %s", SCHEDULE_DAY, SCHEDULE_TIME)
     while True:
         schedule.run_pending()
