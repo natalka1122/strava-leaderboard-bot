@@ -1,0 +1,52 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy:
+    name: Deploy to staging server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+
+            cd /opt/strava-leaderboard-bot/stage
+
+            echo "=== Pulling latest code ==="
+            git pull origin develop
+
+            echo "=== Rebuilding and restarting container ==="
+            docker compose up -d --build
+
+            echo "=== Post-deploy health check ==="
+            # Mark the time — we'll look for a file created after this
+            touch /tmp/deploy-timestamp
+
+            for i in $(seq 1 12); do
+              sleep 5
+
+              # Check container is running
+              if ! docker compose ps --services --filter status=running | grep -q strava-bot; then
+                continue
+              fi
+
+              # Check for a leaderboard file newer than the deploy timestamp
+              RECENT=$(find leaderboard_output -name "leaderboard_*.png" -newer /tmp/deploy-timestamp 2>/dev/null | head -1)
+              if [ -n "$RECENT" ]; then
+                echo "✅ Container running and leaderboard created: $RECENT"
+                exit 0
+              fi
+            done
+
+            echo "❌ Health check failed — container or leaderboard file not ready within 60s"
+            echo "=== Last 30 lines of container logs ==="
+            docker compose logs --tail=30
+            exit 1
