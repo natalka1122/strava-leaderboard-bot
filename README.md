@@ -8,7 +8,9 @@ Weekly Strava club leaderboard bot that generates and shares attractive leaderbo
 - Generates styled PNG leaderboard with athlete photos and stats
 - Supports multiple stat columns: Distance, Runs, Longest Run, Avg Pace, Elevation Gain
 - Sends results to Telegram group chat
-- Runs on a weekly schedule (default: Monday 00:05)
+- Runs on a weekly schedule (default: Sunday 17:30 Budapest)
+- `--dry-run` mode for testing without Telegram posts
+- Proactive cookie expiry detection with DM alerts to bot owners
 
 ## Requirements
 
@@ -57,9 +59,22 @@ docker-compose logs -f
 docker-compose down
 ```
 
+## Dry-run mode
+
+Test a leaderboard fetch and image generation without sending anything to Telegram:
+
+```bash
+docker compose run --rm strava-bot --dry-run
+```
+
+The image is saved to `leaderboard_output/` as usual, but Telegram is never called.
+
+On normal startup the first run is always dry-run (to avoid spam on container restart).
+Only the weekly scheduled run posts to the group.
+
 ## Schedule
 
-The bot is configured to run weekly by default. Change in `.env` or `docker-compose.yml` if needed. Default is Monday 00:05.
+The bot is configured to run weekly by default. Change `SCHEDULE_DAY` and `SCHEDULE_TIME` in `.env`.
 
 ## Project Structure
 
