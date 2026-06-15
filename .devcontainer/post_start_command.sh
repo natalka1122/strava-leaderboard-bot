@@ -9,8 +9,8 @@ sudo chown -R vscode:vscode ~/.ssh || true
 chmod 700 ~/.ssh || true
 chmod 600 ~/.ssh/* || true
 
-# Restore pi agent sessions
-ln -s /workspaces/strava/.pi/sessions /home/vscode/.pi/agent/sessions
+# # Restore pi agent sessions
+# ln -s /workspaces/strava/.pi/agent /home/vscode/.pi/agent
 
 # Fix gh permissions (credential mount)
 sudo chown -R vscode:vscode ~/.config/gh 2>/dev/null || true

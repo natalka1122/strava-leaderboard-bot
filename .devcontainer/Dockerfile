@@ -1,7 +1,8 @@
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
-ENV DEBIAN_FRONTEND=noninteractive
+ARG PI_VERSION=v0.79.4
 
+ENV DEBIAN_FRONTEND=noninteractive
 # System packages + Python
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -53,10 +54,11 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages \
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get update && \
     apt-get install -y --no-install-recommends nodejs && \
-    npm install -g @mariozechner/pi-coding-agent && \
+    npm install -g --ignore-scripts @earendil-works/pi-coding-agent@${PI_VERSION} && \
     npm cache clean --force && \
     rm -rf /var/lib/apt/lists/*
-RUN pi update
+RUN pi install npm:pi-subagents && \
+    pi install npm:pi-mcp-adapter
 
 ARG MY_OPENROUTER_API_KEY
 ENV MY_OPENROUTER_API_KEY=${MY_OPENROUTER_API_KEY}
