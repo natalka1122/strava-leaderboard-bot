@@ -8,7 +8,8 @@
     },
     "mounts": [
         "source=/mnt/c/Users/NataliaKonovalova/.ssh_github,target=/home/vscode/.ssh,type=bind,consistency=cached",
-        "source=${localEnv:HOME}/.config/gh_strava_leaderboard,target=/home/vscode/.config/gh,type=bind,consistency=cached"
+        "source=${localEnv:HOME}/.config/gh_strava_leaderboard,target=/home/vscode/.config/gh,type=bind,consistency=cached",
+        "source=/mnt/c/Python Projects/strava/.pi/agent,target=/home/vscode/.pi/agent,type=bind,consistency=cached"
     ],    
     "remoteEnv": {
         "TZ": "Europe/Budapest",
