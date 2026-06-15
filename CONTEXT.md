@@ -4,6 +4,13 @@ A weekly Strava club leaderboard bot that generates leaderboard images and sends
 
 ## Language
 
+**Dry Run**:
+A mode where the bot fetches and generates the leaderboard image but skips all Telegram posting.
+On container restart, the first run is always a dry run to prevent spamming the group.
+Full runs only happen on the configured weekly schedule.
+The `--dry-run` CLI flag puts the entire process (including scheduled runs) into dry-run mode.
+_Avoid_: Test mode, silent mode
+
 **Cookie Health Check**:
 A proactive check that periodically fetches the club leaderboard to detect session expiry before the weekly run. On 302/401 responds by alerting all Bot Owners immediately. On other errors, uses a two-strike rule: logs on first failure, alerts on second consecutive failure. A successful 200 clears the strike counter.
 _Avoid_: Expiry detector
@@ -27,6 +34,7 @@ _Avoid_: Error text
 - A **Cookie Health Check** detects session expiry and alerts all **Bot Owners** via Telegram DM
 - On expiry, the weekly run sends a **Leaderboard Failure Message** to the group chat
 - A **Bot Owner** receives expiry alerts directly via Telegram DM and is expected to refresh the cookie
+- On container restart, the first run is always a **Dry Run** — the scheduled weekly run posts for real
 
 ## Example dialogue
 
