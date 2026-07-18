@@ -2,7 +2,7 @@
 """
 Strava Bot — Weekly Club Leaderboard
 ─────────────────────────────────────
-Every Sunday 23:00 Budapest time:
+On a weekly schedule:
   1. Fetches the club leaderboard via Strava's web JSON API
   2. Generates a Strava-styled PNG
   3. Saves it to leaderboard_output/
@@ -40,7 +40,7 @@ def fetch_and_save(dry_run: bool = False) -> None:
 
     # 1. Fetch leaderboard
     log.info("Fetching leaderboard from Strava web API …")
-    # Fetch extra to ensure we capture everyone ≥ 30km
+    # Fetch extra so everyone above the km cutoff is captured
     fetch_limit = max(LEADERBOARD_MIN_RUNNERS, 50)
     try:
         entries = get_leaderboard_entries(per_page=fetch_limit)
@@ -65,18 +65,18 @@ def fetch_and_save(dry_run: bool = False) -> None:
         entries = entries[:limit]
         log.info("Truncated to %d rows (%d ran ≥ %dkm)", limit, km_cutoff_count, LEADERBOARD_KM_CUTOFF)
 
-    # 2. Generate image
+    # 3. Generate image
     log.info("%d athletes — generating image …", len(entries))
     img = generate(entries)
 
-    # 3. Save to disk
+    # 4. Save to disk
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     date_str = datetime.now().strftime("%Y-%m-%d")
     path = os.path.join(OUTPUT_DIR, f"leaderboard_{date_str}.png")
     img.save(path, quality=95)
     log.info("Saved → %s (%d rows, %.1f KB)", path, len(entries), os.path.getsize(path) / 1024)
 
-    # 4. Send to Telegram (skip in dry-run mode)
+    # 5. Send to Telegram (skip in dry-run mode)
     if dry_run:
         log.info("[DRY-RUN] Skipping Telegram post — image saved locally")
     else:

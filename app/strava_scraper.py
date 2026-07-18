@@ -1,7 +1,8 @@
 """Fetch Strava club leaderboard from the web JSON API.
 
 Only needs a valid _strava4_session cookie (refresh every ~2-4 weeks).
-Passes ALL fields from the API response to the image generator.
+Forwards athlete identity, distance, and a selected set of stat
+fields (see STAT_KEYS) to the image generator.
 """
 import logging
 import requests

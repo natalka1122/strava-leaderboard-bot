@@ -8,7 +8,7 @@ Weekly Strava club leaderboard bot that generates and shares attractive leaderbo
 - Generates styled PNG leaderboard with athlete photos and stats
 - Supports multiple stat columns: Distance, Runs, Longest Run, Avg Pace, Elevation Gain
 - Sends results to Telegram group chat
-- Runs on a weekly schedule (default: Sunday 17:30 Budapest)
+- Runs on a weekly schedule
 - `--dry-run` mode for testing without Telegram posts
 - Proactive cookie expiry detection with DM alerts to bot owners
 
@@ -76,15 +76,40 @@ Only the weekly scheduled run posts to the group.
 
 The bot is configured to run weekly by default. Change `SCHEDULE_DAY` and `SCHEDULE_TIME` in `.env`.
 
+## Deployment (CI/CD)
+
+GitHub Actions deploys automatically on push:
+
+- `develop` → **staging** (`.github/workflows/deploy-staging.yml`)
+- `main` → **production** (`.github/workflows/deploy-prod.yml`)
+
+Both workflows deploy over SSH, build the Docker image on the server, and run a
+post-deploy health check (container running + a fresh leaderboard file within 60s).
+Connection details come from the GitHub environments `stage` and `prod`
+(secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`).
+
+To provision a server for an environment, run as root:
+
+```bash
+sudo scripts/setup-server.sh stage   # or: prod
+```
+
+The script creates the deploy user, generates a per-environment deploy key, and
+clones the repo to `/opt/strava-leaderboard-bot/<env>/`. The `.env` file lives
+on the server only — it is never committed.
+
 ## Project Structure
 
 ```
 ├── app/              Application code
 │   ├── bot.py        Entry point
 │   ├── config.py     Configuration
-│   ├── strava_scraper.py Strava API client
+│   ├── strava_scraper.py Strava web API client
 │   ├── image_generator.py   Image creation
-│   └── telegram_client.py   Telegram integration
+│   ├── telegram_client.py   Telegram integration
+│   └── cookie_health_check.py Cookie expiry detection
+├── scripts/          Server provisioning
+├── .github/workflows/ CI/CD (staging + production deploys)
 ├── .env.example      Configuration template
 ├── Dockerfile        Container build
 └── docker-compose.yml Docker Compose setup

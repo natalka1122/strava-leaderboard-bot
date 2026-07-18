@@ -5,5 +5,4 @@ leaderboard_output/
 to_delete/
 .pi/
 .env
-debug_leaderboard.html
 *.png
