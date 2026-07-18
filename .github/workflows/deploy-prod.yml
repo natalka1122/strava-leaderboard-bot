@@ -8,6 +8,7 @@ jobs:
   deploy:
     name: Deploy to production server
     runs-on: ubuntu-latest
+    environment: prod
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.2
