@@ -1,6 +1,6 @@
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
-ARG PI_VERSION=v0.79.4
+ARG PI_VERSION=v0.80.10
 
 ENV DEBIAN_FRONTEND=noninteractive
 # System packages + Python
