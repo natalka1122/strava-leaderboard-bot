@@ -5,4 +5,7 @@ leaderboard_output/
 .mypy_cache/
 to_delete/
 .pi/
+
+# Local working notes (deploy details, server IP) — keep out of public repo
+Goal.md
 *.jsonl
