@@ -55,6 +55,18 @@ else
     echo "  ✓ Created."
 fi
 
+# ── Docker access ────────────────────────────────────────
+echo ""
+echo "=== Granting Docker access to ${DEPLOY_USER} ==="
+if ! getent group docker &>/dev/null; then
+    echo "  ⚠ 'docker' group not found — is Docker installed? Skipping."
+elif id -nG "${DEPLOY_USER}" | grep -qw docker; then
+    echo "  ✓ Already in the docker group."
+else
+    usermod -aG docker "${DEPLOY_USER}"
+    echo "  ✓ Added to the docker group."
+fi
+
 # ── SSH deploy key (one per environment) ─────────────────
 echo ""
 echo "=== Setting up CI deploy key for '${ENV_NAME}' ==="
