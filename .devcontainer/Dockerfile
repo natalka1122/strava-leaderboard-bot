@@ -1,7 +1,5 @@
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
-ARG PI_VERSION=v0.80.10
-
 ENV DEBIAN_FRONTEND=noninteractive
 # System packages + Python
 RUN apt-get update && \
@@ -51,19 +49,29 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages \
     openai
 
 # Node.js 22 + Pi Coding Agent
+ARG PI_VERSION=v0.85.1
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get update && \
     apt-get install -y --no-install-recommends nodejs && \
     npm install -g --ignore-scripts @earendil-works/pi-coding-agent@${PI_VERSION} && \
     npm cache clean --force && \
     rm -rf /var/lib/apt/lists/*
-RUN pi install npm:pi-subagents && \
-    pi install npm:pi-mcp-adapter
+
+# Base pi settings (defaults only - no packages; they are registered below)
+COPY .devcontainer/settings.json /home/vscode/.pi/agent/settings.json
+
+# Install pi packages: pi appends each source to the `packages` array in the
+# file copied above. HOME=/home/vscode is required because the build runs as root.
+RUN HOME=/home/vscode pi install npm:pi-mcp-adapter && \
+    HOME=/home/vscode pi install npm:pi-matt-pocock-skills && \
+    HOME=/home/vscode pi install npm:@dietrichgebert/ponytail && \
+    HOME=/home/vscode pi install npm:pi-web-access && \
+    HOME=/home/vscode pi install npm:pi-hermes-memory && \
+    HOME=/home/vscode pi install git:github.com/jonjonrankin/pi-caveman
 
 ARG MY_OPENROUTER_API_KEY
 ENV MY_OPENROUTER_API_KEY=${MY_OPENROUTER_API_KEY}
 COPY .devcontainer/auth.json.tpl /home/vscode/.pi/agent/auth.json.tpl
-COPY .devcontainer/models.json /home/vscode/.pi/agent/models.json
 RUN envsubst < /home/vscode/.pi/agent/auth.json.tpl > /home/vscode/.pi/agent/auth.json && \
-    chown -R vscode:vscode /home/vscode/.pi && \
+    chown -R vscode:vscode /home/vscode/.pi /home/vscode/.npm && \
     chmod 600 /home/vscode/.pi/agent/auth.json

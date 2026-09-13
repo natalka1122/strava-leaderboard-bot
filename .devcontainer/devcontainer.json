@@ -7,12 +7,14 @@
         }
     },
     "mounts": [
-        "source=~/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached",
+        "source=${localEnv:GITHUB_SSH_DIR},target=/home/vscode/.ssh,type=bind,consistency=cached",
         "source=${localEnv:HOME}/.config/gh_strava_leaderboard,target=/home/vscode/.config/gh,type=bind,consistency=cached",
-        "source=workspace .pi agent,target=/home/vscode/.pi/agent,type=bind,consistency=cached"
-    ],    
-    "remoteEnv": {
+        "source=${localWorkspaceFolder}/.pi/agent/sessions,target=/home/vscode/.pi/agent/sessions,type=bind,consistency=cached"
+    ],
+    "containerEnv": {
         "TZ": "Europe/Budapest",
+        "GIT_AUTHOR_EMAIL": "${localEnv:GIT_AUTHOR_EMAIL}",
+        "GIT_AUTHOR_NAME": "${localEnv:GIT_AUTHOR_NAME}",
         "STRAVA_SESSION_COOKIE": "${localEnv:STRAVA_SESSION_COOKIE}",
         "STRAVA_CLUB_ID": "${localEnv:STRAVA_CLUB_ID}"
     },
@@ -33,9 +35,6 @@
                 "ms-azuretools.vscode-containers"
             ],
             "settings": {
-                // "[python]": {
-                //     "editor.defaultFormatter": "charliermarsh.ruff"
-                // },
                 "remote.localPortHost": "allInterfaces",
                 "remote.autoForwardPorts": false,
                 "mypy-type-checker.args": [
@@ -48,7 +47,6 @@
                     "reportUnusedImport": "warning",
                     "reportUnusedVariable": "warning"
                 },
-                // "editor.defaultFormatter": "charliermarsh.ruff",
                 "github.copilot.enable": {
                     "*": false,
                     "plaintext": false,

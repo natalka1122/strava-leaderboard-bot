@@ -1,9 +1,0 @@
-{
-  "providers": {
-    "openrouter": {
-      "models": [
-        { "id": "qwen3.6-27b" }
-      ]
-    }
-  }
-}

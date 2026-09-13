@@ -22,7 +22,10 @@ jobs:
             cd /opt/strava-leaderboard-bot/stage
 
             echo "=== Pulling latest code ==="
-            git pull origin develop
+            git fetch origin
+            # reset, not pull: rewritten history (email scrub) means server
+            # branch diverges and can never fast-forward; deploy dir has no local commits
+            git reset --hard origin/develop
 
             echo "=== Rebuilding and restarting container ==="
             docker compose up -d --build
