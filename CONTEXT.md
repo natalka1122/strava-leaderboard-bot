@@ -36,6 +36,40 @@ _Avoid_: Error text
 - A **Bot Owner** receives expiry alerts directly via Telegram DM and is expected to refresh the cookie
 - On container restart, the first run is always a **Dry Run** — the scheduled weekly run posts for real
 
+## Event Reminders
+
+**Event Reminder**:
+An image posted to the **Event Reminder Thread** when a club event's next occurrence falls inside a **Reminder Window**. The image is a **Reminder Card** built from a **Photo Pool** photo with the event title, weekday, time, and place overlaid.
+_Avoid_: Run reminder, event notification
+
+**Reminder Window**:
+A period before an event occurrence defined by **Reminder Lead Days** — e.g. a 7-day lead means an occurrence inside the next 7 days triggers one reminder. Each lead day value triggers exactly one reminder per occurrence.
+_Avoid_: Reminder schedule
+
+**Reminder Lead Days**:
+The comma-separated list of days-before configured in `.env` (e.g. `7,1`, or a single `1`) that defines the **Reminder Windows**. Any count is valid — each value triggers exactly one reminder per occurrence.
+_Avoid_: Days before, reminder offset, reminder lead list
+
+**Reminder Card**:
+A photo from the **Photo Pool** with event title, weekday, time, and place overlaid — posted as an **Event Reminder**.
+_Avoid_: flyer, announcement image, poster
+
+**Photo Pool**:
+The configured folder of photos the bot draws from when building a **Reminder Card**.
+_Avoid_: images folder, assets directory
+
+**Event Reminder Thread**:
+The Telegram forum thread, distinct from the leaderboard thread, to which all **Event Reminders** are posted.
+_Avoid_: events thread, second topic
+
+**Reminder State File**:
+A persisted record of which (occurrence, lead day) pairs were already posted, so an **Event Reminder** is never sent twice for the same occurrence.
+_Avoid_: dedupe cache, sent-marker
+
+**Event Source Club**:
+The Strava club whose group events the bot reads for **Event Reminders**. May differ from the leaderboard club.
+_Avoid_: events club, second club
+
 ## Example dialogue
 
 > **Dev:** "Who gets notified when the cookie expires?"

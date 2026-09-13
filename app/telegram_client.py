@@ -9,7 +9,7 @@ from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_THREAD_ID, TEL
 logger = logging.getLogger(__name__)
 
 
-def send_to_telegram(image_path: str) -> bool:
+def send_to_telegram(image_path: str, *, caption: str = TELEGRAM_CAPTION, thread_id: int = TELEGRAM_THREAD_ID) -> bool:
     """Sends the image at `image_path` to `TELEGRAM_CHAT_ID`.
     Optionally targets a specific topic (forum thread).
     Returns True on success."""
@@ -21,13 +21,13 @@ def send_to_telegram(image_path: str) -> bool:
 
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
-        "caption": TELEGRAM_CAPTION,
+        "caption": caption,
         "parse_mode": "HTML",
     }
-    if TELEGRAM_THREAD_ID:
-        payload["message_thread_id"] = TELEGRAM_THREAD_ID
+    if thread_id:
+        payload["message_thread_id"] = thread_id
 
-    logger.info("Sending to Telegram chat %s (topic: %s)...", TELEGRAM_CHAT_ID, TELEGRAM_THREAD_ID or "main")
+    logger.info("Sending to Telegram chat %s (topic: %s)...", TELEGRAM_CHAT_ID, thread_id or "main")
 
     try:
         with open(image_path, "rb") as img:

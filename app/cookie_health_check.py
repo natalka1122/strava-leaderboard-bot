@@ -20,6 +20,7 @@ from config import (
 )
 from strava_scraper import check_cookie
 from telegram_client import send_message
+from event_reminders import run_event_reminders
 
 log = logging.getLogger("cookie-health")
 
@@ -106,8 +107,9 @@ def run_health_check() -> None:
         )
 
 
-def start_health_check() -> None:
-    """Start the cookie health check loop. Runs immediately, then on schedule."""
+def start_health_check(dry_run: bool = False) -> None:
+    """Start the cookie health check loop. Runs immediately, then on schedule.
+    Event reminders ride the same cadence."""
     if COOKIE_CHECK_INTERVAL_MINUTES <= 0:
         log.warning("COOKIE_CHECK_INTERVAL_MINUTES is %d — health check disabled", COOKIE_CHECK_INTERVAL_MINUTES)
         return
@@ -119,7 +121,9 @@ def start_health_check() -> None:
 
     # First check immediately
     run_health_check()
+    run_event_reminders(dry_run=dry_run)
 
     # Schedule recurring checks
     schedule.every(COOKIE_CHECK_INTERVAL_MINUTES).minutes.do(run_health_check)
+    schedule.every(COOKIE_CHECK_INTERVAL_MINUTES).minutes.do(run_event_reminders, dry_run=dry_run)
     log.info("Next health check in %d minute(s)", COOKIE_CHECK_INTERVAL_MINUTES)

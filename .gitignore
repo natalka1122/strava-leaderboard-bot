@@ -6,6 +6,9 @@ leaderboard_output/
 to_delete/
 .pi/
 
+# Event reminder photos (user-provided, stays on the server)
+event_photos/
+
 # Local working notes (deploy details, server IP) — keep out of public repo
 Goal.md
 *.jsonl

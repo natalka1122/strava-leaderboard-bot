@@ -63,7 +63,7 @@ COPY .devcontainer/settings.json /home/vscode/.pi/agent/settings.json
 # Install pi packages: pi appends each source to the `packages` array in the
 # file copied above. HOME=/home/vscode is required because the build runs as root.
 RUN HOME=/home/vscode pi install npm:pi-mcp-adapter && \
-    HOME=/home/vscode pi install npm:pi-matt-pocock-skills && \
+    HOME=/home/vscode pi install npm:mattpocock-skills-unofficial-plugin && \
     HOME=/home/vscode pi install npm:@dietrichgebert/ponytail && \
     HOME=/home/vscode pi install npm:pi-web-access && \
     HOME=/home/vscode pi install npm:pi-hermes-memory && \

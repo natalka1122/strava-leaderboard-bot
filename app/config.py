@@ -24,6 +24,13 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 TELEGRAM_THREAD_ID = int(os.getenv("TELEGRAM_THREAD_ID", "0") or 0)
 TELEGRAM_CAPTION = os.getenv("TELEGRAM_CAPTION", "Weekly club leaderboard")
 
+# Event reminders (optional — enabled when EVENT_REMINDER_LEAD_DAYS is set)
+EVENTS_CLUB_ID = int(os.getenv("STRAVA_EVENTS_CLUB_ID", "") or CLUB_ID)
+EVENT_REMINDER_LEAD_DAYS = [int(x) for x in os.getenv("EVENT_REMINDER_LEAD_DAYS", "").split(",") if x.strip()]
+EVENT_REMINDER_THREAD_ID = int(os.getenv("EVENT_REMINDER_THREAD_ID", "0") or 0)
+EVENT_REMINDER_CAPTION = os.getenv("EVENT_REMINDER_CAPTION", "Бежим!")
+EVENT_PHOTOS_DIR = os.getenv("EVENT_PHOTOS_DIR", "event_photos")
+
 # Cookie health check
 TELEGRAM_ALERT_IDS = [x.strip() for x in os.getenv("TELEGRAM_ALERT_IDS", "").split(",") if x.strip()]
 COOKIE_CHECK_INTERVAL_MINUTES = int(os.getenv("COOKIE_CHECK_INTERVAL_MINUTES", "180"))

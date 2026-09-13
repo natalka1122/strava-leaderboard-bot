@@ -105,7 +105,7 @@ def main() -> None:
     log.info("╚══════════════════════════════════════════╝")
 
     # Start cookie health check (runs immediately + on interval)
-    start_health_check()
+    start_health_check(dry_run=args.dry_run)
 
     # First run immediately — always dry-run to avoid spam on restart
     fetch_and_save(dry_run=True)
