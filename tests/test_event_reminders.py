@@ -3,14 +3,21 @@ import os
 import shutil
 import sys
 import tempfile
+import json
 import unittest
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app"))
 
 import event_reminders as er
 
 NOW = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+BUD = "Europe/Budapest"
+
+
+def bud(s: str) -> datetime:
+    return datetime.fromisoformat(s).replace(tzinfo=ZoneInfo(BUD))
 
 
 def occ(days: float) -> datetime:
@@ -82,20 +89,6 @@ class StateTest(unittest.TestCase):
         self.assertEqual(er.load_state(NOW), [])
 
 
-class OccurrenceParseTest(unittest.TestCase):
-    def test_parses_utc_zulu(self):
-        got = er._parse_occurrences({"id": 9, "upcoming_occurrences": ["2026-09-20T07:00:00Z"]})
-        self.assertEqual(len(got), 1)
-        self.assertEqual(got[0].utcoffset(), timedelta(0))
-
-    def test_skips_garbage(self):
-        got = er._parse_occurrences({"id": 9, "upcoming_occurrences": ["not-a-date", "2026-09-20T07:00:00Z"]})
-        self.assertEqual(len(got), 1)
-
-    def test_no_occurrences(self):
-        self.assertEqual(er._parse_occurrences({"id": 9}), [])
-
-
 class PhotoPoolTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -122,6 +115,101 @@ class PhotoPoolTest(unittest.TestCase):
         self.assertEqual(er.pick_photo(pool, occ(3)), er.pick_photo(pool, occ(3)))
         self.assertIn(er.pick_photo(pool, occ(3.7)), pool)
         self.assertIn(er.pick_photo(pool, occ(5.1)), pool)
+
+
+class ExpandOccurrencesTest(unittest.TestCase):
+    """Expansion of the served next occurrence + recurrence rule."""
+    def test_oneshot_no_rule(self):
+        ev = {"id": "1", "zone": BUD,
+              "occurrence_datetime": "2026-01-15T09:00:00",
+              "schedule": {"startTime": "2026-01-15T09:00:00"}}
+        got = er.expand_occurrences(ev, NOW, 30)
+        self.assertEqual(got, [bud("2026-01-15T09:00:00")])
+
+    def test_oneshot_past_served_is_skipped(self):
+        ev = {"id": "1", "zone": BUD,
+              "occurrence_datetime": "2026-01-01T09:00:00",
+              "schedule": {"startTime": "2026-01-01T09:00:00"}}
+        self.assertEqual(er.expand_occurrences(ev, NOW, 30), [])
+
+    def test_monthly_first_saturday_real_shape(self):
+        # the live Sziget Run 5K event: monthly, first Saturday
+        ev = {"id": "2116323", "zone": BUD,
+              "occurrence_datetime": "2026-10-03T09:00:00",
+              "schedule": {"startTime": "2026-09-05T09:00:00",
+                            "recurrenceRule": {"days": ["Saturday"],
+                                                "frequency": "Monthly",
+                                                "interval": 1,
+                                                "ordinals": ["First"]}}}
+        now = datetime(2026, 9, 13, tzinfo=timezone.utc)
+        got = er.expand_occurrences(ev, now, 120)
+        first_saturdays = ["2026-10-03T09:00:00", "2026-11-07T09:00:00",
+                           "2026-12-05T09:00:00", "2027-01-02T09:00:00"]
+        self.assertEqual(got, [bud(s) for s in first_saturdays])
+
+    def test_weekly_every_week(self):
+        ev = {"id": "2", "zone": BUD,
+              "occurrence_datetime": "2026-01-10T18:00:00",
+              "schedule": {"startTime": "2026-01-03T18:00:00",
+                            "recurrenceRule": {"days": ["Saturday"],
+                                                "frequency": "Weekly",
+                                                "interval": 1}}}
+        now = datetime(2026, 1, 5, tzinfo=timezone.utc)
+        got = er.expand_occurrences(ev, now, 20)
+        self.assertEqual(got, [bud("2026-01-10T18:00:00"), bud("2026-01-17T18:00:00"), bud("2026-01-24T18:00:00")])
+
+    def test_results_are_aware_sorted_and_future_only(self):
+        ev = {"id": "3", "zone": "UTC",
+              "occurrence_datetime": "2026-01-10T09:00:00",
+              "schedule": {"startTime": "2026-01-10T09:00:00",
+                            "recurrenceRule": {"days": ["Friday"],
+                                                "frequency": "Weekly",
+                                                "interval": 1}}}
+        now = datetime(2026, 1, 20, tzinfo=timezone.utc)  # past the first Fridays
+        got = er.expand_occurrences(ev, now, 14)
+        self.assertTrue(got)
+        self.assertTrue(all(o.tzinfo is not None for o in got))
+        self.assertEqual(got, sorted(got))
+        self.assertTrue(all(o > now for o in got))
+
+
+class ScraperParseTest(unittest.TestCase):
+    """Parsing of the SSR pages (mocked transport)."""
+    def test_event_ids_from_club_page(self):
+        from strava_scraper import fetch_group_event_ids
+        import unittest.mock as mock
+        html = ('<div data-react-props="&quot;appContext&quot;:{&quot;clubId&quot;:47046,'
+                '&quot;upcomingGroupEventIds&quot;:[2116323,2119999],&quot;athleteId&quot;:&quot;1&quot;}">')
+        fake = mock.Mock(); fake.status_code = 200; fake.url = "https://www.strava.com/clubs/47046"; fake.text = html
+        with mock.patch("strava_scraper._session") as sess:
+            sess.return_value.get.return_value = fake
+            self.assertEqual(fetch_group_event_ids(47046), ["2116323", "2119999"])
+
+    def test_event_ids_empty(self):
+        from strava_scraper import fetch_group_event_ids
+        import unittest.mock as mock
+        fake = mock.Mock(); fake.status_code = 200; fake.url = "https://www.strava.com/clubs/47046"; fake.text = "no events section"
+        with mock.patch("strava_scraper._session") as sess:
+            sess.return_value.get.return_value = fake
+            self.assertEqual(fetch_group_event_ids(47046), [])
+
+    def test_event_detail_from_next_data(self):
+        from strava_scraper import fetch_group_event
+        import unittest.mock as mock, json as _json
+        occ = {"title": "SZIGET RUN 5K", "zone": "Europe/Budapest", "address": "Margit island",
+               "occurrenceDateTime": "2026-10-03T09:00:00",
+               "schedule": {"startTime": "2026-09-05T09:00:00",
+                             "recurrenceRule": {"days": ["Saturday"], "frequency": "Monthly",
+                                                 "interval": 1, "ordinals": ["First"]}}}
+        nd = json.dumps({"props": {"pageProps": {"eventOccurrence": occ}}})
+        html = f'<script id="__NEXT_DATA__" type="application/json">{nd}</script>'
+        fake = mock.Mock(); fake.status_code = 200; fake.url = "https://www.strava.com/clubs/47046/group_events/2116323/occurrences/x"; fake.text = html
+        with mock.patch("strava_scraper._session") as sess:
+            sess.return_value.get.return_value = fake
+            ev = fetch_group_event(47046, "2116323")
+        self.assertEqual(ev["title"], "SZIGET RUN 5K")
+        self.assertEqual(ev["place"], "Margit island")
+        self.assertEqual(ev["occurrence_datetime"], "2026-10-03T09:00:00")
 
 
 if __name__ == "__main__":

@@ -4,7 +4,12 @@ Only needs a valid _strava4_session cookie (refresh every ~2-4 weeks).
 Forwards athlete identity, distance, and a selected set of stat
 fields (see STAT_KEYS) to the image generator.
 """
+import html
+import json
 import logging
+import re
+import time
+
 import requests
 from config import CLUB_ID, STRAVA_SESSION_COOKIE
 
@@ -91,3 +96,61 @@ def check_cookie() -> int:
     except requests.RequestException as e:
         logger.warning("Cookie check request failed: %s", e)
         return 0
+
+
+# ── Club group events (same cookie auth) ─────────────────
+# The events pages are server-rendered for the logged-in web session:
+# the club page embeds `upcomingGroupEventIds` and each event page embeds a
+# `__NEXT_DATA__` JSON with the next occurrence + recurrence schedule. No
+# OAuth token involved — same `_strava4_session` cookie as the leaderboard.
+
+def _get_orion(url: str, tries: int = 3) -> requests.Response:
+    """GET a page that should be the logged-in orion render.
+
+    Strava A/B-serves the Next.js marketing shell for a share of requests;
+    the orion render is small (~100KB) and embeds `upcomingGroupEventIds`,
+    the shell is ~600KB without it. Retry to miss the shell."""
+    for i in range(tries):
+        resp = _session().get(url, timeout=20)
+        if resp.status_code == 200 and "/login" not in resp.url:
+            big_or_shell = len(resp.text) > 300_000 and "upcomingGroupEventIds" not in html.unescape(resp.text)
+            if not big_or_shell:
+                return resp
+        time.sleep(2 * (i + 1))
+    return resp
+
+
+def fetch_group_event_ids(club_id: int) -> list[str]:
+    """IDs of upcoming group events from the club page SSR, newest output."""
+    resp = _get_orion(f"https://www.strava.com/clubs/{club_id}")
+    if resp.status_code != 200 or "/login" in resp.url:
+        raise RuntimeError(f"Club page returned HTTP {resp.status_code} (or session expired)")
+    text = html.unescape(resp.text)
+    m = re.search(r'"upcomingGroupEventIds"\s*:\s*\[([0-9,\s]*)]', text)
+    if not m:
+        return []
+    return [e for e in m.group(1).split(",") if e.strip()]
+
+
+def fetch_group_event(club_id: int, event_id: str) -> dict:
+    """Event detail from the event page SSR `__NEXT_DATA__` (follows the
+    redirect to the next-occurrence page). Raises RuntimeError on failure."""
+    url = f"https://www.strava.com/clubs/{club_id}/group_events/{event_id}"
+    resp = _session().get(url, timeout=20)
+    if resp.status_code != 200 or "/login" in resp.url:
+        raise RuntimeError(f"Event page {url} returned HTTP {resp.status_code}")
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', resp.text, re.S)
+    if not m:
+        raise RuntimeError(f"Event page {url}: no __NEXT_DATA__ payload")
+    try:
+        occ = json.loads(html.unescape(m.group(1)))["props"]["pageProps"]["eventOccurrence"]
+    except (KeyError, json.JSONDecodeError) as e:
+        raise RuntimeError(f"Event page {url}: unexpected payload ({e})") from e
+    return {
+        "id": event_id,
+        "title": occ.get("title") or "",
+        "zone": occ.get("zone") or "",
+        "place": occ.get("address") or "",   # build_reminder_card accepts a plain string
+        "schedule": occ.get("schedule") or {},
+        "occurrence_datetime": occ.get("occurrenceDateTime") or "",  # next occurrence, local zone
+    }
