@@ -41,15 +41,29 @@ def get_leaderboard_entries(per_page: int = 20) -> list[dict]:
     }
 
     logger.info("Fetching leaderboard from Strava web JSON API…")
-    resp = _session().get(
-        url, params={"per_page": per_page, "page": 1}, headers=headers,
-    )
-
+    # Strava A/B-serves an HTML shell for a share of requests; retry until the
+    # body is actually JSON so a flaky 200-with-HTML never crashes the bot.
+    resp = None
+    data = None
+    for attempt in range(3):
+        resp = _session().get(
+            url, params={"per_page": per_page, "page": 1}, headers=headers,
+        )
+        if resp.status_code == 200:
+            try:
+                data = resp.json()
+                break
+            except ValueError:
+                logger.warning("Leaderboard returned non-JSON body (attempt %d/3)", attempt + 1)
+                time.sleep(2 * (attempt + 1))
+        else:
+            break
     if resp.status_code != 200:
         logger.error("Web API returned HTTP %d", resp.status_code)
         raise RuntimeError(f"Leaderboard returned HTTP {resp.status_code}")
+    if data is None:
+        raise RuntimeError("Leaderboard returned a non-JSON response (HTML shell?)")
 
-    data = resp.json()
     raw = data.get("data", [])
     logger.info("Got %d entries from Strava web API", len(raw))
 
