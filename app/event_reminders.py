@@ -306,6 +306,7 @@ def run_event_reminders(dry_run: bool = False) -> None:
                 continue  # already due/passed — lead missed, never fires late
             for lead in firing_leads(now, occ, EVENT_REMINDER_LEAD_DAYS):
                 if is_posted(rows, ev.get("id"), occ, lead):
+                    log.info("Reminder for event %s lead %dd already posted — skipping", ev.get("id"), lead)
                     continue
                 dirty = _post(ev, occ, lead, dry_run, rows) or dirty
     if dirty:
