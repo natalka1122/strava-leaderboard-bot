@@ -53,6 +53,31 @@ def _alert_owners(status: int) -> None:
             log.error("Failed to send alert to owner %s", owner_id)
 
 
+def _alert_degraded() -> None:
+    """Send a Telegram DM to every Bot Owner about a non-JSON (HTML shell)
+    response — Strava rollout, not a cookie problem."""
+    if not TELEGRAM_ALERT_IDS:
+        log.warning("No TELEGRAM_ALERT_IDS configured — cannot alert")
+        return
+
+    message = (
+        f"⚠️ Strava leaderboard endpoint is degraded!\n\n"
+        f"Strava keeps returning HTML instead of the leaderboard JSON "
+        f"(A/B rollout). The weekly leaderboard will not be generated until "
+        f"this passes. No action needed with the cookie — monitor the server."
+    )
+
+    for owner_id in TELEGRAM_ALERT_IDS:
+        owner_id = owner_id.strip()
+        if not owner_id:
+            continue
+        ok = send_message(owner_id, message)
+        if ok:
+            log.info("Degradation alert sent to owner %s", owner_id)
+        else:
+            log.error("Failed to send degradation alert to owner %s", owner_id)
+
+
 def run_health_check() -> None:
     """One health check cycle — called on schedule."""
     global _consecutive_failures, _is_alerting
@@ -83,6 +108,18 @@ def run_health_check() -> None:
         else:
             log.warning("Cookie still expired (HTTP %d) — re-alerting owners", status)
             _alert_owners(status)
+        return
+
+    if status == 418:
+        # HTML instead of JSON — Strava rollout, fetch degraded (not cookie)
+        _consecutive_failures += 1
+        if not _is_alerting:
+            log.warning("Leaderboard endpoint serving HTML instead of JSON — alerting owners")
+            _alert_degraded()
+            _is_alerting = True
+        else:
+            log.warning("Leaderboard still degraded — re-alerting owners")
+            _alert_degraded()
         return
 
     # Other error (timeout, 500, 0 = network error, etc.)

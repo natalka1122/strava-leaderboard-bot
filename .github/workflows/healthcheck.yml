@@ -1,0 +1,60 @@
+name: Server Health Check
+
+on:
+  schedule:
+    # Every 3 hours — matches the bot's cookie-check cadence
+    - cron: "23 */3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  stage:
+    name: Check staging container
+    runs-on: ubuntu-latest
+    environment: stage
+    steps:
+      - name: Health check via SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/strava-leaderboard-bot/stage
+
+            CID=$(docker compose ps -q strava-bot 2>/dev/null)
+            [ -n "$CID" ] || { echo "❌ container missing"; exit 1; }
+
+            STATUS=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$CID")
+            echo "container health: $STATUS"
+            [ "$STATUS" = "healthy" ] || { echo "❌ container not healthy"; exit 1; }
+
+            docker compose logs --since 3h 2>&1 | grep -qE "Traceback|non-JSON response" \
+              && { echo "❌ crash or fetch degradation in recent logs"; exit 1; } \
+              || echo "✅ no crash/degradation markers in logs"
+
+  prod:
+    name: Check production container
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Health check via SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/strava-leaderboard-bot/prod
+
+            CID=$(docker compose ps -q strava-bot 2>/dev/null)
+            [ -n "$CID" ] || { echo "❌ container missing"; exit 1; }
+
+            STATUS=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$CID")
+            echo "container health: $STATUS"
+            [ "$STATUS" = "healthy" ] || { echo "❌ container not healthy"; exit 1; }
+
+            docker compose logs --since 3h 2>&1 | grep -qE "Traceback|non-JSON response" \
+              && { echo "❌ crash or fetch degradation in recent logs"; exit 1; } \
+              || echo "✅ no crash/degradation markers in logs"

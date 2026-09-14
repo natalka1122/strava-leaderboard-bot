@@ -58,6 +58,7 @@ def get_leaderboard_entries(per_page: int = 20) -> list[dict]:
                 time.sleep(2 * (attempt + 1))
         else:
             break
+    assert resp is not None  # the loop above always assigns it
     if resp.status_code != 200:
         logger.error("Web API returned HTTP %d", resp.status_code)
         raise RuntimeError(f"Leaderboard returned HTTP {resp.status_code}")
@@ -92,7 +93,9 @@ def get_leaderboard_entries(per_page: int = 20) -> list[dict]:
 
 def check_cookie() -> int:
     """Quick health check: fetch leaderboard with per_page=1, no redirects.
-    Returns the HTTP status code (200 = valid, 302/401 = expired, 0 = network error)."""
+
+    Returns 200 (valid), 302/401 (expired), 0 (network error), 418 (server
+    returned HTML instead of JSON — Strava rollout, fetch degraded)."""
     url = f"https://www.strava.com/clubs/{CLUB_ID}/leaderboard"
     headers = {
         "Accept": "application/json, text/javascript, */*; q=0.01",
@@ -100,13 +103,22 @@ def check_cookie() -> int:
         "Referer": url,
     }
     try:
-        resp = _session().get(
-            url, params={"per_page": 1, "page": 1},
-            headers=headers,
-            allow_redirects=False,
-            timeout=15,
-        )
-        return resp.status_code
+        for attempt in range(3):
+            resp = _session().get(
+                url, params={"per_page": 1, "page": 1},
+                headers=headers,
+                allow_redirects=False,
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                return resp.status_code
+            try:
+                resp.json()
+                return 200
+            except ValueError:
+                logger.warning("Cookie check: non-JSON body (attempt %d/3)", attempt + 1)
+                time.sleep(2 * (attempt + 1))
+        return 418
     except requests.RequestException as e:
         logger.warning("Cookie check request failed: %s", e)
         return 0
