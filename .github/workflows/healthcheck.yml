@@ -7,35 +7,13 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  stage:
-    name: Check staging container
+  health:
+    name: Check stage + prod containers
     runs-on: ubuntu-latest
-    environment: stage
-    steps:
-      - name: Health check via SSH
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            set -e
-            cd /opt/strava-leaderboard-bot/stage
-
-            CID=$(docker compose ps -q strava-bot 2>/dev/null)
-            [ -n "$CID" ] || { echo "❌ container missing"; exit 1; }
-
-            STATUS=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$CID")
-            echo "container health: $STATUS"
-            [ "$STATUS" = "healthy" ] || { echo "❌ container not healthy"; exit 1; }
-
-            docker compose logs --since 3h 2>&1 | grep -qE "Traceback|non-JSON response" \
-              && { echo "❌ crash or fetch degradation in recent logs"; exit 1; } \
-              || echo "✅ no crash/degradation markers in logs"
-
-  prod:
-    name: Check production container
-    runs-on: ubuntu-latest
+    # prod env accepts `main`-ref runs; stage env branch policy doesn't.
+    # Both envs share one server + deploy user (see Goal.md), so one key
+    # reaches both checkouts. If stage moves to its own server, split jobs
+    # and allow `main` in the stage env branch policy.
     environment: prod
     steps:
       - name: Health check via SSH
@@ -46,15 +24,17 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             set -e
-            cd /opt/strava-leaderboard-bot/prod
+            for DIR in stage prod; do
+              cd /opt/strava-leaderboard-bot/$DIR
 
-            CID=$(docker compose ps -q strava-bot 2>/dev/null)
-            [ -n "$CID" ] || { echo "❌ container missing"; exit 1; }
+              CID=$(docker compose ps -q strava-bot 2>/dev/null)
+              [ -n "$CID" ] || { echo "❌ [$DIR] container missing"; exit 1; }
 
-            STATUS=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$CID")
-            echo "container health: $STATUS"
-            [ "$STATUS" = "healthy" ] || { echo "❌ container not healthy"; exit 1; }
+              STATUS=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$CID")
+              echo "[$DIR] container health: $STATUS"
+              [ "$STATUS" = "healthy" ] || { echo "❌ [$DIR] container not healthy"; exit 1; }
 
-            docker compose logs --since 3h 2>&1 | grep -qE "Traceback|non-JSON response" \
-              && { echo "❌ crash or fetch degradation in recent logs"; exit 1; } \
-              || echo "✅ no crash/degradation markers in logs"
+              docker compose logs --since 3h 2>&1 | grep -qE "Traceback|non-JSON response" \
+                && { echo "❌ [$DIR] crash or fetch degradation in recent logs"; exit 1; } \
+                || echo "✅ [$DIR] no crash/degradation markers in logs"
+            done
