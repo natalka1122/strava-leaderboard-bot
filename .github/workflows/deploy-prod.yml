@@ -28,7 +28,7 @@ jobs:
             git reset --hard origin/main
 
             echo "=== Rebuilding and restarting container ==="
-            docker compose up -d --build
+            docker compose up -d --build --force-recreate
 
             echo "=== Post-deploy health check ==="
             touch /tmp/deploy-timestamp
