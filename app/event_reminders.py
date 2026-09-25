@@ -293,6 +293,8 @@ def build_caption(event: dict, occurrence: datetime) -> str:
         lines.append(f'📍 <a href="{maps_url}">{place}</a>')
     else:
         lines.append(f"📍 {maps_url}")
+    event_url = f"https://www.strava.com/clubs/{EVENTS_CLUB_ID}/group_events/{event['id']}"
+    lines.append(f'🔗 <a href="{event_url}">Strava</a>')
     return "\n".join(lines)
 
 
