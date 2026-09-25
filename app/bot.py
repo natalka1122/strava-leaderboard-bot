@@ -8,6 +8,7 @@ On a weekly schedule:
   3. Saves it to leaderboard_output/
   4. Sends it to a Telegram group chat
 """
+
 import argparse
 import logging
 import os
@@ -16,7 +17,16 @@ from datetime import datetime
 
 import schedule
 
-from config import CLUB_ID, SCHEDULE_TIME, SCHEDULE_DAY, OUTPUT_DIR, STRAVA_SESSION_COOKIE, LEADERBOARD_MIN_RUNNERS, LEADERBOARD_KM_CUTOFF, LEADERBOARD_FAILURE_MESSAGE
+from config import (
+    CLUB_ID,
+    SCHEDULE_TIME,
+    SCHEDULE_DAY,
+    OUTPUT_DIR,
+    STRAVA_SESSION_COOKIE,
+    LEADERBOARD_MIN_RUNNERS,
+    LEADERBOARD_KM_CUTOFF,
+    LEADERBOARD_FAILURE_MESSAGE,
+)
 from strava_scraper import get_leaderboard_entries
 from image_generator import generate
 from telegram_client import send_to_telegram, send_group_message
@@ -63,7 +73,12 @@ def fetch_and_save(dry_run: bool = False) -> None:
     limit = max(LEADERBOARD_MIN_RUNNERS, km_cutoff_count)
     if len(entries) > limit:
         entries = entries[:limit]
-        log.info("Truncated to %d rows (%d ran ≥ %dkm)", limit, km_cutoff_count, LEADERBOARD_KM_CUTOFF)
+        log.info(
+            "Truncated to %d rows (%d ran ≥ %dkm)",
+            limit,
+            km_cutoff_count,
+            LEADERBOARD_KM_CUTOFF,
+        )
 
     # 3. Generate image
     log.info("%d athletes — generating image …", len(entries))
@@ -74,7 +89,12 @@ def fetch_and_save(dry_run: bool = False) -> None:
     date_str = datetime.now().strftime("%Y-%m-%d")
     path = os.path.join(OUTPUT_DIR, f"leaderboard_{date_str}.png")
     img.save(path, quality=95)
-    log.info("Saved → %s (%d rows, %.1f KB)", path, len(entries), os.path.getsize(path) / 1024)
+    log.info(
+        "Saved → %s (%d rows, %.1f KB)",
+        path,
+        len(entries),
+        os.path.getsize(path) / 1024,
+    )
 
     # 5. Send to Telegram (skip in dry-run mode)
     if dry_run:
@@ -101,7 +121,10 @@ def main() -> None:
     log.info("║   Strava Bot  –  Weekly Leaderboard     ║")
     log.info("║   Club: БББП  #%d                 ║", CLUB_ID)
     log.info("║   Schedule: every %s at %s Budapest   ║", SCHEDULE_DAY, SCHEDULE_TIME)
-    log.info("║   Telegram:  %s                    ║", "DRY-RUN" if args.dry_run else "enabled")
+    log.info(
+        "║   Telegram:  %s                    ║",
+        "DRY-RUN" if args.dry_run else "enabled",
+    )
     log.info("╚══════════════════════════════════════════╝")
 
     # Start cookie health check (runs immediately + on interval)
@@ -111,7 +134,9 @@ def main() -> None:
     fetch_and_save(dry_run=True)
 
     # Schedule weekly — respects the --dry-run flag for real runs
-    getattr(schedule.every(), SCHEDULE_DAY).at(SCHEDULE_TIME).do(fetch_and_save, dry_run=args.dry_run)
+    getattr(schedule.every(), SCHEDULE_DAY).at(SCHEDULE_TIME).do(
+        fetch_and_save, dry_run=args.dry_run
+    )
     log.info("Scheduler active — next run: next %s at %s", SCHEDULE_DAY, SCHEDULE_TIME)
     while True:
         schedule.run_pending()

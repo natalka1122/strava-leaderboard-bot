@@ -12,6 +12,7 @@ import logging
 import os
 import random
 from datetime import datetime, timezone, timedelta, tzinfo
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageDraw
@@ -36,6 +37,11 @@ STATE_FILE = os.path.join(OUTPUT_DIR, "event_reminder_state.json")
 WEEKDAYS_RU = (
     "ПОНЕДЕЛЬНИК", "ВТОРНИК", "СРЕДА", "ЧЕТВЕРГ",
     "ПЯТНИЦА", "СУББОТА", "ВОСКРЕСЕНЬЕ",
+)
+MONTHS_RU = (
+    "января", "февраля", "марта", "апреля",
+    "мая", "июня", "июля", "августа",
+    "сентября", "октября", "ноября", "декабря",
 )
 _IMG_EXTS = (".jpg", ".jpeg", ".png", ".webp")
 
@@ -249,6 +255,47 @@ def build_reminder_card(photo_path: str, event: dict, occurrence: datetime) -> I
     return img
 
 
+# ── Caption ─────────────────────────────────────────────
+def build_maps_url(event: dict) -> str:
+    """Google Maps link for the event start location."""
+    lat = event.get("start_lat")
+    lng = event.get("start_lng")
+    if lat is not None and lng is not None:
+        return f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
+    place = event.get("place") or ""
+    return f"https://www.google.com/maps/search/?api=1&query={quote(str(place))}"
+
+
+def build_caption(event: dict, occurrence: datetime) -> str:
+    """Telegram caption with date, time, place, and maps link."""
+    zone = event.get("zone")
+    tz: tzinfo = timezone.utc
+    if isinstance(zone, str) and zone:
+        try:
+            tz = ZoneInfo(zone)
+        except Exception:
+            tz = timezone.utc
+    local = occurrence.astimezone(tz)
+    wd = WEEKDAYS_RU[local.weekday()]
+    d = local.day
+    m = MONTHS_RU[local.month - 1]
+    hhmm = f"{local.hour}:{local.minute:02d}"
+
+    place = event.get("place") or ""
+    maps_url = build_maps_url(event)
+
+    lines = [
+        EVENT_REMINDER_CAPTION,
+        "",
+        f"{wd}, {d} {m}, {hhmm}",
+    ]
+    if place:
+        lines.append(f'📍 <a href="{maps_url}">{place}</a>')
+    else:
+        lines.append(f"📍 {maps_url}")
+    return "\n".join(lines)
+
+
 # ── Run ─────────────────────────────────────────────────
 def _post(event: dict, occurrence: datetime, lead: int, dry_run: bool, rows: list[dict]) -> bool:
     """Build + send one reminder. Returns True when state should be marked."""
@@ -273,7 +320,7 @@ def _post(event: dict, occurrence: datetime, lead: int, dry_run: bool, rows: lis
         log.info("[DRY-RUN] Would post to Telegram thread %s", EVENT_REMINDER_THREAD_ID or "main")
         return False
 
-    if send_to_telegram(path, caption=EVENT_REMINDER_CAPTION, thread_id=EVENT_REMINDER_THREAD_ID):
+    if send_to_telegram(path, caption=build_caption(event, occurrence), thread_id=EVENT_REMINDER_THREAD_ID):
         log.info("✅ Reminder posted for event %s (lead %dd)", ev_id, lead)
         rows.append({"event_id": str(ev_id), "occurrence": occurrence.isoformat(), "lead": lead})
         return True

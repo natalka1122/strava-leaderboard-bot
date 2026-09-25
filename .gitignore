@@ -1,14 +1,45 @@
-.env
+# Python
 __pycache__/
-*.pyc
-leaderboard_output/
-.mypy_cache/
-to_delete/
+*.py[cod]
+*.pyo
+*.egg-info/
+
+# Coverage output
+htmlcov/
+
+dist/
+build/
+*.egg
+.pytest_cache/
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# IDE / editors
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Pi coding agent (credentials, sessions, skills)
 .pi/
+
+# Per-workspace gh CLI credentials (mounted into container as ~/.config/gh)
+.config/gh/
 
 # Event reminder photos (user-provided, stays on the server)
 event_photos/
 
 # Local working notes (deploy details, server IP) — keep out of public repo
 Goal.md
-*.jsonl
+leaderboard_output/
+to_delete/

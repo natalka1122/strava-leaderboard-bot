@@ -28,7 +28,8 @@ def _session() -> requests.Session:
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36",
     })
     if STRAVA_SESSION_COOKIE:
-        s.cookies.set("_strava4_session", STRAVA_SESSION_COOKIE, domain=".strava.com")
+        # Send as raw Cookie header — requests cookie jar causes 302 → /login
+        s.headers["Cookie"] = f"_strava4_session={STRAVA_SESSION_COOKIE}"
     return s
 
 
@@ -159,24 +160,52 @@ def fetch_group_event_ids(club_id: int) -> list[str]:
 
 
 def fetch_group_event(club_id: int, event_id: str) -> dict:
-    """Event detail from the event page SSR `__NEXT_DATA__` (follows the
-    redirect to the next-occurrence page). Raises RuntimeError on failure."""
+    """Event detail from the event page SSR `__NEXT_DATA__` — follows 307
+    redirect to the next-occurrence page. Raises RuntimeError."""
     url = f"https://www.strava.com/clubs/{club_id}/group_events/{event_id}"
-    resp = _session().get(url, timeout=20)
+    resp = _session().get(url, timeout=20, allow_redirects=False)
+    # 307 → occurrence page — follow manually (allow_redirects drops Cookie)
+    if resp.status_code == 307:
+        loc = resp.headers.get("Location", "")
+        if not loc.startswith("http"):
+            loc = "https://www.strava.com" + loc
+        resp = _session().get(loc, timeout=20)
     if resp.status_code != 200 or "/login" in resp.url:
         raise RuntimeError(f"Event page {url} returned HTTP {resp.status_code}")
     m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', resp.text, re.S)
     if not m:
         raise RuntimeError(f"Event page {url}: no __NEXT_DATA__ payload")
     try:
-        occ = json.loads(html.unescape(m.group(1)))["props"]["pageProps"]["eventOccurrence"]
+        pp = json.loads(html.unescape(m.group(1)))["props"]["pageProps"]
     except (KeyError, json.JSONDecodeError) as e:
         raise RuntimeError(f"Event page {url}: unexpected payload ({e})") from e
+
+    # New format: occurrence page (redirect target) has eventOccurrence
+    if "eventOccurrence" in pp:
+        occ = pp["eventOccurrence"]
+        startXY = occ.get("startXY") or {}
+        return {
+            "id": event_id,
+            "title": occ.get("title") or "",
+            "zone": occ.get("zone") or "",
+            "place": occ.get("address") or "",
+            "schedule": occ.get("schedule") or {},
+            "occurrence_datetime": occ.get("occurrenceDateTime") or "",
+            "start_lat": startXY.get("lat"),
+            "start_lng": startXY.get("lng"),
+        }
+
+    # New format (fallback): event landing page has event.occurrences[]
+    ev = pp.get("event") or {}
+    occs = ev.get("occurrences") or []
+    oc = occs[0] if occs else {}
     return {
         "id": event_id,
-        "title": occ.get("title") or "",
-        "zone": occ.get("zone") or "",
-        "place": occ.get("address") or "",   # build_reminder_card accepts a plain string
-        "schedule": occ.get("schedule") or {},
-        "occurrence_datetime": occ.get("occurrenceDateTime") or "",  # next occurrence, local zone
+        "title": oc.get("title") or "",
+        "zone": oc.get("zone") or "",
+        "place": oc.get("address") or "",
+        "schedule": oc.get("schedule") or {},
+        "occurrence_datetime": oc.get("occurrenceDateTime") or "",
+        "start_lat": None,
+        "start_lng": None,
     }
