@@ -1,5 +1,6 @@
-# Dev toolchain — single source of truth for the Python packages baked into the
-# devcontainer image (see the "Python tooling" step in .devcontainer/Dockerfile).
+# Dev toolchain + tool config. Single source of truth for the Python packages
+# baked into the devcontainer image (see the "Python tooling" step in
+# .devcontainer/Dockerfile).
 #
 # This repo is not a distributable package, so there is deliberately no
 # [project] table; only a PEP 735 dependency group. Runtime (app) deps live
@@ -15,10 +16,14 @@
 dev = [
     # pre-commit framework + the hooks declared in .pre-commit-config.yaml
     "pre-commit",
-    "black",
-    "flake8",
-    "wemake-python-styleguide",
-    "dlint",
+    "ruff",                     # formatting + fast lint
+    "flake8",                   # host for the plugins below
+    "flake8-pyproject",         # lets flake8 read [tool.flake8] from this file
+    "wemake-python-styleguide", # WPS checks
+    "dlint",                    # DUO checks
+    "cohesion",                 # H601 module cohesion
+    "isort",                    # import order
+    "vulture",                  # dead code
     "import-linter",
 
     # typing + tests
@@ -28,3 +33,126 @@ dev = [
     "pytest-asyncio",
     "pytest-xdist",
 ]
+
+# ---------------------------------------------------------------------------
+# ruff — formatting and fast style/quality lint
+# ---------------------------------------------------------------------------
+# Rule set mirrors the wemake-services template, minus "I": import order is
+# owned by isort below, so two import sorters can never fight over one file.
+# wemake-python-styleguide is not a ruff plugin — it runs after ruff, as a
+# separate flake8 pass (see [tool.flake8] and .pre-commit-config.yaml).
+[tool.ruff]
+# 120 matches the width the codebase (and the black config this replaces) is
+# already formatted at. Wemake's own template uses 80 — switching means
+# reformatting every file once, so it is a deliberate choice, not a default.
+line-length = 120
+target-version = "py314"
+output-format = "concise"
+fix = true
+
+# `preview` is OFF on purpose: preview rules/formatting change between ruff
+# releases, which would churn the whole tree on every bump (e.g. preview
+# rewrites `except (A, B)` to PEP 758's unparenthesized `except A, B`).
+
+extend-exclude = [".pi", "leaderboard_output"]
+
+[tool.ruff.lint]
+select = [
+    "A",    # flake8-builtins
+    "ASYNC",
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "C90",  # mccabe
+    "COM",  # flake8-commas
+    "D",    # pydocstyle
+    "DTZ",  # flake8-datetimez
+    "E",    # pycodestyle
+    "ERA",  # flake8-eradicate
+    "EXE",  # flake8-executable
+    "F",    # pyflakes
+    "FA",   # flake8-future-annotations
+    "FBT",  # flake8-boolean-trap
+    "FLY",  # pyflint
+    "FURB", # refurb
+    "G",    # flake8-logging-format
+    "ICN",  # flake8-import-conventions
+    "ISC",  # flake8-implicit-str-concat
+    "LOG",  # flake8-logging
+    "N",    # pep8-naming
+    "PERF", # perflint
+    "PIE",  # flake8-pie
+    "PL",   # pylint
+    "PT",   # flake8-pytest-style
+    "PTH",  # flake8-use-pathlib
+    "Q",    # flake8-quotes
+    "RET",  # flake8-return
+    "RSE",  # flake8-raise
+    "RUF",  # ruff
+    "S",    # flake8-bandit
+    "SIM",  # flake8-simplify
+    "SLF",  # flake8-self
+    "SLOT", # flake8-slots
+    "T100", # flake8-debugger
+    "TRY",  # tryceratops
+]
+
+# COM812 fights the formatter (ruff says so itself): ruff format already
+# normalises trailing commas, so the lint rule only creates conflicts.
+ignore = ["COM812"]
+
+[tool.ruff.lint.pydocstyle]
+# pep257 picks D211 + D212, which are mutually exclusive with D203 + D213.
+# Without this ruff warns about the incompatible pairs on every single run.
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests lean on literals, long test names, and assert-style helpers.
+"tests/*.py" = ["D", "PLR2004", "S101"]
+
+[tool.ruff.format]
+# ruff format replaces black entirely — same role, one tool fewer.
+quote-style = "double"
+indent-style = "space"
+
+# ---------------------------------------------------------------------------
+# flake8 (+ plugins) — wemake is enforced via `select = WPS`
+# ---------------------------------------------------------------------------
+# Docs require WPS to be selected explicitly; E99 keeps flake8's own syntax
+# errors on. DUO/H601 re-enable the dlint and cohesion checks that `select=WPS`
+# would otherwise switch off.
+#
+# NOTE: flake8-pyproject stringifies every value and hands it to flake8 as
+# config-file text, so these must use flake8's native comma-separated syntax —
+# TOML arrays/inline tables are NOT supported here.
+[tool.flake8]
+format = "wemake"
+show-source = true
+statistics = false
+doctests = true
+max-line-length = 120
+select = "WPS,E99,DUO,H601"
+extend-exclude = ".venv,.pi,node_modules,leaderboard_output"
+# WPS432 = magic numbers; tests are nothing but magic numbers.
+per-file-ignores = "tests/*.py: WPS432"
+
+# ---------------------------------------------------------------------------
+# isort
+# ---------------------------------------------------------------------------
+[tool.isort]
+profile = "wemake"
+line_length = 120
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+# `mypy_path = "app"` is what makes the flat `app/` modules (`config`,
+# `strava_scraper`, ...) resolve as first-party instead of third-party — the
+# CLI equivalent of `PYTHONPATH=app`. Without it mypy reports 23 import errors.
+#
+# TODO: drop `ignore_missing_imports` by adding stub packages (`types-Pillow`,
+# `types-requests`, ...) to the dev group, and turn on `strict` (currently 61
+# errors) once the codebase is annotated.
+[tool.mypy]
+mypy_path = "app"
+explicit_package_bases = true
+ignore_missing_imports = true
