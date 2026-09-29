@@ -1,0 +1,30 @@
+# Dev toolchain — single source of truth for the Python packages baked into the
+# devcontainer image (see the "Python tooling" step in .devcontainer/Dockerfile).
+#
+# This repo is not a distributable package, so there is deliberately no
+# [project] table; only a PEP 735 dependency group. Runtime (app) deps live
+# separately in app/requirements.txt.
+#
+# Refresh inside the container:
+#   uv pip install --system --break-system-packages --group dev
+#
+# `uv` itself is bootstrapped with pip in the Dockerfile (chicken-and-egg), so
+# it is not listed here.
+
+[dependency-groups]
+dev = [
+    # pre-commit framework + the hooks declared in .pre-commit-config.yaml
+    "pre-commit",
+    "black",
+    "flake8",
+    "wemake-python-styleguide",
+    "dlint",
+    "import-linter",
+
+    # typing + tests
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+    "pytest-xdist",
+]

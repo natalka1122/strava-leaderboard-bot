@@ -35,24 +35,17 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python
 # pip lands first on sys.path (/usr/local/lib/python3.14/dist-packages) and wins.
 RUN python3 -m pip install --ignore-installed --break-system-packages pip
 
-# Python tooling
-RUN python3 -m pip install --no-cache-dir --break-system-packages \
-    argcomplete \
-    mypy \
-    pytest \
-    pytest-cov \
-    pytest-asyncio \
-    black \
-    wemake-python-styleguide \
-    cohesion \
-    dlint \
-    pytest-xdist \
-    vulture \
-    isort \
-    jupyter \
-    pipenv \
-    uv \
-    openai
+# uv is the installer for the dev toolchain below, so bootstrap it with pip
+# first (it cannot install itself from the group it reads).
+RUN python3 -m pip install --no-cache-dir --break-system-packages uv
+
+# Python tooling — versions/deps declared once in pyproject.toml
+# ([dependency-groups].dev), not here. Copied rather than bind-mounted so the
+# layer invalidates whenever the group changes.
+COPY pyproject.toml /tmp/pyproject.toml
+RUN cd /tmp && \
+    uv pip install --system --break-system-packages --no-cache --group dev && \
+    rm -f /tmp/pyproject.toml
 
 # Pi Coding Agent + agent-browser runtime — user scope, installed AS `vscode`.
 ARG PI_VERSION=v0.87.1
