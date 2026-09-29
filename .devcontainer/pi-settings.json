@@ -1,0 +1,16 @@
+{
+  "defaultProvider": "openrouter",
+  "defaultModel": "deepseek/deepseek-v4.1-flash",
+  "defaultThinkingLevel": "high",
+  "theme": "dark",
+  "packages": [
+    "npm:@earendil-works/pi-ai",
+    "npm:pi-mcp-adapter",
+    "npm:pi-matt-pocock-skills",
+    "npm:pi-web-access",
+    "npm:pi-caveman",
+    "npm:pi-agent-browser-native",
+    "npm:cc-safety-net",
+    "npm:pi-lens"
+  ]
+}

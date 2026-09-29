@@ -1,33 +1,39 @@
-FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
+FROM mcr.microsoft.com/devcontainers/base:ubuntu26.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 # System packages + Python
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        software-properties-common \
+        ca-certificates \
         git \
         curl \
-        iputils-ping \
-        net-tools \
-        telnet \
-        tcpdump \
-        redis-tools \
-        netcat-openbsd \
-        dnsutils \
+        gnupg \
+        python3 \
+        python3-pip \
+        python3-venv \
         gh \
         fd-find \
         ripgrep && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    chmod 644 /etc/apt/keyrings/nodesource.gpg && \
+    printf 'Types: deb\nURIs: https://deb.nodesource.com/node_24.x/\nSuites: nodistro\nComponents: main\nSigned-By: /etc/apt/keyrings/nodesource.gpg\n' > /etc/apt/sources.list.d/nodesource.sources && \
     apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3.14 \
-        python3.14-venv \
-        python3-pip \
-        python-is-python3 && \
+    apt-get install -y --no-install-recommends nodejs ffmpeg && \
+    npm install -g agent-browser && \
+    npm cache clean --force && \
+    apt clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Make Python 3.14 default
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.14 1
+
+# `python` alias = plain symlink to python3 — no python-is-python3 package, so
+# no alternatives re-registration can ever flip the default away from 3.14.
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+
+# Fresh pip: distro pip is deb-managed (no RECORD file) and refuses normal
+# `--upgrade` uninstall. `--ignore-installed` skips the uninstall step; the new
+# pip lands first on sys.path (/usr/local/lib/python3.14/dist-packages) and wins.
+RUN python3 -m pip install --ignore-installed --break-system-packages pip
 
 # Python tooling
 RUN python3 -m pip install --no-cache-dir --break-system-packages \
@@ -48,30 +54,11 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages \
     uv \
     openai
 
-# Node.js 22 + Pi Coding Agent
-ARG PI_VERSION=v0.85.1
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends nodejs && \
-    npm install -g --ignore-scripts @earendil-works/pi-coding-agent@${PI_VERSION} && \
+# Pi Coding Agent + agent-browser runtime — user scope, installed AS `vscode`.
+ARG PI_VERSION=v0.87.1
+
+USER vscode
+RUN npm install -g --ignore-scripts --prefix "$HOME/.local" @earendil-works/pi-coding-agent@${PI_VERSION} && \
+    agent-browser install --with-deps && \
     npm cache clean --force && \
-    rm -rf /var/lib/apt/lists/*
-
-# Base pi settings (defaults only - no packages; they are registered below)
-COPY .devcontainer/settings.json /home/vscode/.pi/agent/settings.json
-
-# Install pi packages: pi appends each source to the `packages` array in the
-# file copied above. HOME=/home/vscode is required because the build runs as root.
-RUN HOME=/home/vscode pi install npm:pi-mcp-adapter && \
-    HOME=/home/vscode pi install npm:mattpocock-skills-unofficial-plugin && \
-    HOME=/home/vscode pi install npm:@dietrichgebert/ponytail && \
-    HOME=/home/vscode pi install npm:pi-web-access && \
-    HOME=/home/vscode pi install npm:pi-hermes-memory && \
-    HOME=/home/vscode pi install git:github.com/jonjonrankin/pi-caveman
-
-ARG MY_OPENROUTER_API_KEY
-ENV MY_OPENROUTER_API_KEY=${MY_OPENROUTER_API_KEY}
-COPY .devcontainer/auth.json.tpl /home/vscode/.pi/agent/auth.json.tpl
-RUN envsubst < /home/vscode/.pi/agent/auth.json.tpl > /home/vscode/.pi/agent/auth.json && \
-    chown -R vscode:vscode /home/vscode/.pi /home/vscode/.npm && \
-    chmod 600 /home/vscode/.pi/agent/auth.json
+    sudo rm -rf /var/lib/apt/lists/*

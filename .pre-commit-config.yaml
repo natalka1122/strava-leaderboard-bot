@@ -1,0 +1,58 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: local
+    hooks:
+      - id: black
+        name: black (format check)
+        entry: black --check --diff
+        language: system
+        types: [python]
+        files: ^(app|tests)/
+
+      - id: flake8
+        name: flake8 (wemake + dlint)
+        entry: flake8
+        language: system
+        types: [python]
+        files: ^app/
+
+      # - id: flake8
+      #   name: flake8 (wemake + dlint)
+      #   entry: flake8
+      #   language: system
+      #   types: [python]
+      #   files: ^(app|tests)/
+
+      # - id: mypy
+      #   name: mypy (strict)
+      #   entry: mypy app/ tests/ --explicit-package-bases
+      #   language: system
+      #   pass_filenames: false
+      #   types: [python]
+      #   files: ^app/
+
+      # - id: mypy
+      #   name: mypy (strict)
+      #   entry: mypy app/ tests/ --explicit-package-bases
+      #   language: system
+      #   pass_filenames: false
+      #   types: [python]
+      #   files: ^(app|tests)/
+
+      - id: import-linter
+        name: import-linter (architecture gate)
+        # --cache-dir keeps .import_linter_cache out of the repo tree
+        entry: >-
+          env PYTHONPATH=app lint-imports
+          --cache-dir /tmp/dist-sys-challenge-import-linter-cache
+        language: system
+        pass_filenames: false
+        types: [python]
+        files: ^app/
