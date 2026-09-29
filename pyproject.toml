@@ -22,7 +22,6 @@ dev = [
     "wemake-python-styleguide", # WPS checks
     "dlint",                    # DUO checks
     "cohesion",                 # H601 module cohesion
-    "isort",                    # import order
     "vulture",                  # dead code
     "import-linter",
 
@@ -42,13 +41,16 @@ dev = [
 # wemake-python-styleguide is not a ruff plugin — it runs after ruff, as a
 # separate flake8 pass (see [tool.flake8] and .pre-commit-config.yaml).
 [tool.ruff]
-# 120 matches the width the codebase (and the black config this replaces) is
-# already formatted at. Wemake's own template uses 80 — switching means
-# reformatting every file once, so it is a deliberate choice, not a default.
-line-length = 120
+line-length = 80
 target-version = "py314"
 output-format = "concise"
 fix = true
+
+# `app/` is a flat directory of modules, not a package. Declaring it as a
+# source root is what makes ruff treat `config`, `strava_scraper`, ... as
+# first-party (otherwise they are sorted with third-party imports).
+# Same intent as mypy's `mypy_path` below.
+src = ["app"]
 
 # `preview` is OFF on purpose: preview rules/formatting change between ruff
 # releases, which would churn the whole tree on every bump (e.g. preview
@@ -75,6 +77,11 @@ select = [
     "FLY",  # pyflint
     "FURB", # refurb
     "G",    # flake8-logging-format
+    # isort — ruff's own implementation replaces the standalone isort tool.
+    # The old isort "wemake" profile only set layout knobs (multi_line_output,
+    # include_trailing_comma, use_parentheses, line_length=80); `ruff format`
+    # covers those, so ruff's isort owns ordering only and needs no options.
+    "I",
     "ICN",  # flake8-import-conventions
     "ISC",  # flake8-implicit-str-concat
     "LOG",  # flake8-logging
@@ -129,18 +136,11 @@ format = "wemake"
 show-source = true
 statistics = false
 doctests = true
-max-line-length = 120
+max-line-length = 80
 select = "WPS,E99,DUO,H601"
 extend-exclude = ".venv,.pi,node_modules,leaderboard_output"
 # WPS432 = magic numbers; tests are nothing but magic numbers.
 per-file-ignores = "tests/*.py: WPS432"
-
-# ---------------------------------------------------------------------------
-# isort
-# ---------------------------------------------------------------------------
-[tool.isort]
-profile = "wemake"
-line_length = 120
 
 # ---------------------------------------------------------------------------
 # mypy

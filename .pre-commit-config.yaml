@@ -14,20 +14,13 @@ repos:
 
   - repo: local
     hooks:
-      # --- ordering: isort sorts, ruff formats, ruff lints, flake8 enforces
-      #     wemake on top of that. ruff's "I" rules are deliberately off so
-      #     isort is the single owner of import order.
-      - id: isort
-        name: isort (import order)
-        entry: isort
-        language: system
-        types: [python]
-        files: ^(app|tests)/
-
+      # --- ordering: ruff lints (its "I" rules sort imports, replacing the
+      #     standalone isort) then ruff formats, then flake8 enforces wemake on
+      #     top of that.
       # `--force-exclude` makes ruff honour `extend-exclude` for files passed
       # explicitly on the command line (which is how pre-commit passes them).
       - id: ruff-check
-        name: ruff (lint + autofix)
+        name: ruff (lint + import order + autofix)
         entry: ruff check --force-exclude
         language: system
         types: [python]
@@ -43,6 +36,8 @@ repos:
       # wemake-python-styleguide is a flake8 plugin, not a ruff one. Config is
       # read from pyproject.toml [tool.flake8] via the flake8-pyproject plugin —
       # do NOT add `--config=` here, or flake8-pyproject will discard it.
+      # Runs after ruff on purpose: ruff has no WPS rules, and the WPS docs
+      # prescribe running ruff first.
       - id: flake8
         name: flake8 (wemake + dlint + cohesion)
         entry: flake8
