@@ -27,6 +27,11 @@ LEADERBOARD_HISTORY_ENABLED = os.getenv(
 ).lower() not in ("0", "false", "no")
 HISTORY_RETENTION_DAYS = int(os.getenv("HISTORY_RETENTION_DAYS", "14"))
 
+# Weekly leaderboard GIF (built from history on the weekly run, file only)
+LEADERBOARD_GIF_ENABLED = os.getenv(
+    "LEADERBOARD_GIF_ENABLED", "true"
+).lower() not in ("0", "false", "no")
+
 # Telegram
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
