@@ -21,7 +21,8 @@ jobs:
         dir: [stage, prod]
     steps:
       - name: Check ${{ matrix.dir }}
-        uses: appleboy/ssh-action@v1.2.5
+        # v1.2.5 - SHA-pinned to satisfy zizmor unpinned-uses
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
