@@ -11,7 +11,7 @@ jobs:
     environment: prod
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.2
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -24,7 +24,8 @@ jobs:
             echo "=== Pulling latest code ==="
             git fetch origin
             # reset, not pull: rewritten history (email scrub) means server
-            # branch diverges and can never fast-forward; deploy dir has no local commits
+            # branch diverges and can never fast-forward; deploy dir has no
+            # local commits
             git reset --hard origin/main
 
             echo "=== Rebuilding and restarting container ==="
@@ -36,18 +37,21 @@ jobs:
             for i in $(seq 1 12); do
               sleep 5
 
-              if ! docker compose ps --services --filter status=running | grep -q strava-bot; then
+              if ! docker compose ps --services --filter status=running \
+                | grep -q strava-bot; then
                 continue
               fi
 
-              RECENT=$(find leaderboard_output -name "leaderboard_*.png" -newer /tmp/deploy-timestamp 2>/dev/null | head -1)
+              RECENT=$(find leaderboard_output -name "leaderboard_*.png" \
+                -newer /tmp/deploy-timestamp 2>/dev/null | head -1)
               if [ -n "$RECENT" ]; then
                 echo "✅ Container running and leaderboard created: $RECENT"
                 exit 0
               fi
             done
 
-            echo "❌ Health check failed — container or leaderboard file not ready within 60s"
+            echo "❌ Health check failed — container or leaderboard file" \
+              "not ready within 60s"
             echo "=== Last 30 lines of container logs ==="
             docker compose logs --tail=30
             exit 1

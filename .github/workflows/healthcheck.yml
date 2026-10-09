@@ -21,7 +21,7 @@ jobs:
         dir: [stage, prod]
     steps:
       - name: Check ${{ matrix.dir }}
-        uses: appleboy/ssh-action@v1.2.2
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -38,7 +38,8 @@ jobs:
               exit 1
             fi
 
-            FMT='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}'
+            FMT='{{if .State.Health}}{{.State.Health.Status}}'
+            FMT+='{{else}}none{{end}}'
             STATUS=$(docker inspect -f "$FMT" "$CID")
             echo "[$DIR] container health: $STATUS"
 
