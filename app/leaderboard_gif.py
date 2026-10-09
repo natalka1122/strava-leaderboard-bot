@@ -71,9 +71,14 @@ def _font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont:
 
 
 def _timestamp(snapshot: dict) -> datetime | None:
+    if not isinstance(snapshot, dict):
+        return None
+    stamp = snapshot.get("ts")
+    if not isinstance(stamp, str):
+        return None
     try:
-        parsed = datetime.fromisoformat(snapshot["ts"])
-    except (KeyError, TypeError, ValueError):
+        parsed = datetime.fromisoformat(stamp)
+    except ValueError:
         return None
     return parsed if parsed.tzinfo else parsed.astimezone()
 

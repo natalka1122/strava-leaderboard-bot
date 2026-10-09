@@ -78,7 +78,7 @@ def record_snapshot(now: datetime | None = None) -> bool:
         return False
     try:
         entries = get_leaderboard_entries(per_page=FETCH_LIMIT)
-    except RuntimeError as exc:
+    except Exception as exc:  # a fetch failure must never crash the scheduler
         log.warning("History: leaderboard fetch failed: %s", exc)
         return False
     if not entries:

@@ -27,7 +27,7 @@ from config import (
     SCHEDULE_TIME,
     STRAVA_SESSION_COOKIE,
 )
-from cookie_health_check import start_health_check
+from cookie_health_check import guard_job, start_health_check
 from image_generator import generate
 from leaderboard_gif import generate_weekly_gif
 from strava_scraper import get_leaderboard_entries
@@ -139,11 +139,11 @@ def main() -> None:
     start_health_check(dry_run=args.dry_run)
 
     # First run immediately — always dry-run to avoid spam on restart
-    fetch_and_save(dry_run=True)
+    guard_job(fetch_and_save, dry_run=True)()
 
     # Schedule weekly — respects the --dry-run flag for real runs
     getattr(schedule.every(), SCHEDULE_DAY).at(SCHEDULE_TIME).do(
-        fetch_and_save, dry_run=args.dry_run
+        guard_job(fetch_and_save, dry_run=args.dry_run)
     )
     log.info(
         "Scheduler active — next run: next %s at %s",

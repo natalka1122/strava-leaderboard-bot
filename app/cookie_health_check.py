@@ -154,7 +154,28 @@ def run_health_check() -> None:
         )
 
 
-def start_health_check(dry_run: bool = False) -> None:
+def guard_job(job, **job_kwargs):
+    """Wrap a scheduled job so an unexpected error cannot kill the scheduler.
+
+    Errors are logged without a traceback on purpose: the 3-hourly Server
+    Health Check fails on any ``Traceback`` line in the container logs.
+    """
+
+    def run() -> None:
+        try:
+            job(**job_kwargs)
+        except Exception as exc:
+            # No traceback on purpose — the health check greps for it.
+            log.error(  # noqa: TRY400
+                "Scheduled job %s failed: %r",
+                getattr(job, "__name__", job),
+                exc,
+            )
+
+    return run
+
+
+def start_health_check(*, dry_run: bool = False) -> None:
     """Start the cookie health check loop. Runs immediately, then on schedule.
 
     Event reminders ride the same cadence.
@@ -171,15 +192,18 @@ def start_health_check(dry_run: bool = False) -> None:
         COOKIE_CHECK_INTERVAL_MINUTES,
     )
 
-    # First check immediately
-    run_health_check()
-    run_event_reminders(dry_run=dry_run)
-    record_snapshot()
-
-    # Schedule recurring checks
-    schedule.every(COOKIE_CHECK_INTERVAL_MINUTES).minutes.do(run_health_check)
-    schedule.every(COOKIE_CHECK_INTERVAL_MINUTES).minutes.do(
-        run_event_reminders, dry_run=dry_run
+    # Wrap every job so a failure can never take the process down.
+    checks = (
+        guard_job(run_health_check),
+        guard_job(run_event_reminders, dry_run=dry_run),
+        guard_job(record_snapshot),
     )
-    schedule.every(COOKIE_CHECK_INTERVAL_MINUTES).minutes.do(record_snapshot)
+
+    # First run immediately
+    for job in checks:
+        job()
+
+    # Then on the recurring cadence
+    for job in checks:
+        schedule.every(COOKIE_CHECK_INTERVAL_MINUTES).minutes.do(job)
     log.info("Next health check in %d minute(s)", COOKIE_CHECK_INTERVAL_MINUTES)

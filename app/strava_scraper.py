@@ -4,6 +4,7 @@ Only needs a valid _strava4_session cookie (refresh every ~2-4 weeks).
 Forwards athlete identity, distance, and a selected set of stat
 fields (see STAT_KEYS) to the image generator.
 """
+
 import html
 import json
 import logging
@@ -11,22 +12,29 @@ import re
 import time
 
 import requests
+
 from config import CLUB_ID, STRAVA_SESSION_COOKIE
 
 logger = logging.getLogger(__name__)
 
 # Keys the web API returns that we forward to the image generator
 STAT_KEYS = (
-    "velocity", "elev_gain", "num_activities",
-    "best_activities_distance", "moving_time", "rank",
+    "velocity",
+    "elev_gain",
+    "num_activities",
+    "best_activities_distance",
+    "moving_time",
+    "rank",
 )
 
 
 def _session() -> requests.Session:
     s = requests.Session()
-    s.headers.update({
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36",
-    })
+    s.headers.update(
+        {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36",
+        }
+    )
     if STRAVA_SESSION_COOKIE:
         # Send as raw Cookie header — requests cookie jar causes 302 → /login
         s.headers["Cookie"] = f"_strava4_session={STRAVA_SESSION_COOKIE}"
@@ -48,14 +56,19 @@ def get_leaderboard_entries(per_page: int = 20) -> list[dict]:
     data = None
     for attempt in range(3):
         resp = _session().get(
-            url, params={"per_page": per_page, "page": 1}, headers=headers,
+            url,
+            params={"per_page": per_page, "page": 1},
+            headers=headers,
         )
         if resp.status_code == 200:
             try:
                 data = resp.json()
                 break
             except ValueError:
-                logger.warning("Leaderboard returned non-JSON body (attempt %d/3)", attempt + 1)
+                logger.warning(
+                    "Leaderboard returned non-JSON body (attempt %d/3)",
+                    attempt + 1,
+                )
                 time.sleep(2 * (attempt + 1))
         else:
             break
@@ -64,7 +77,9 @@ def get_leaderboard_entries(per_page: int = 20) -> list[dict]:
         logger.error("Web API returned HTTP %d", resp.status_code)
         raise RuntimeError(f"Leaderboard returned HTTP {resp.status_code}")
     if data is None:
-        raise RuntimeError("Leaderboard returned a non-JSON response (HTML shell?)")
+        raise RuntimeError(
+            "Leaderboard returned a non-JSON response (HTML shell?)"
+        )
 
     raw = data.get("data", [])
     logger.info("Got %d entries from Strava web API", len(raw))
@@ -96,7 +111,8 @@ def check_cookie() -> int:
     """Quick health check: fetch leaderboard with per_page=1, no redirects.
 
     Returns 200 (valid), 302/401 (expired), 0 (network error), 418 (server
-    returned HTML instead of JSON — Strava rollout, fetch degraded)."""
+    returned HTML instead of JSON — Strava rollout, fetch degraded).
+    """
     url = f"https://www.strava.com/clubs/{CLUB_ID}/leaderboard"
     headers = {
         "Accept": "application/json, text/javascript, */*; q=0.01",
@@ -106,7 +122,8 @@ def check_cookie() -> int:
     try:
         for attempt in range(3):
             resp = _session().get(
-                url, params={"per_page": 1, "page": 1},
+                url,
+                params={"per_page": 1, "page": 1},
                 headers=headers,
                 allow_redirects=False,
                 timeout=15,
@@ -117,7 +134,9 @@ def check_cookie() -> int:
                 resp.json()
                 return 200
             except ValueError:
-                logger.warning("Cookie check: non-JSON body (attempt %d/3)", attempt + 1)
+                logger.warning(
+                    "Cookie check: non-JSON body (attempt %d/3)", attempt + 1
+                )
                 time.sleep(2 * (attempt + 1))
         return 418
     except requests.RequestException as e:
@@ -131,16 +150,22 @@ def check_cookie() -> int:
 # `__NEXT_DATA__` JSON with the next occurrence + recurrence schedule. No
 # OAuth token involved — same `_strava4_session` cookie as the leaderboard.
 
+
 def _get_orion(url: str, tries: int = 3) -> requests.Response:
     """GET a page that should be the logged-in orion render.
 
     Strava A/B-serves the Next.js marketing shell for a share of requests;
     the orion render is small (~100KB) and embeds `upcomingGroupEventIds`,
-    the shell is ~600KB without it. Retry to miss the shell."""
+    the shell is ~600KB without it. Retry to miss the shell.
+    """
     for i in range(tries):
         resp = _session().get(url, timeout=20)
         if resp.status_code == 200 and "/login" not in resp.url:
-            big_or_shell = len(resp.text) > 300_000 and "upcomingGroupEventIds" not in html.unescape(resp.text)
+            big_or_shell = len(
+                resp.text
+            ) > 300_000 and "upcomingGroupEventIds" not in html.unescape(
+                resp.text
+            )
             if not big_or_shell:
                 return resp
         time.sleep(2 * (i + 1))
@@ -151,7 +176,9 @@ def fetch_group_event_ids(club_id: int) -> list[str]:
     """IDs of upcoming group events from the club page SSR, newest output."""
     resp = _get_orion(f"https://www.strava.com/clubs/{club_id}")
     if resp.status_code != 200 or "/login" in resp.url:
-        raise RuntimeError(f"Club page returned HTTP {resp.status_code} (or session expired)")
+        raise RuntimeError(
+            f"Club page returned HTTP {resp.status_code} (or session expired)"
+        )
     text = html.unescape(resp.text)
     m = re.search(r'"upcomingGroupEventIds"\s*:\s*\[([0-9,\s]*)]', text)
     if not m:
@@ -161,7 +188,8 @@ def fetch_group_event_ids(club_id: int) -> list[str]:
 
 def fetch_group_event(club_id: int, event_id: str) -> dict:
     """Event detail from the event page SSR `__NEXT_DATA__` — follows 307
-    redirect to the next-occurrence page. Raises RuntimeError."""
+    redirect to the next-occurrence page. Raises RuntimeError.
+    """
     url = f"https://www.strava.com/clubs/{club_id}/group_events/{event_id}"
     resp = _session().get(url, timeout=20, allow_redirects=False)
     # 307 → occurrence page — follow manually (allow_redirects drops Cookie)
@@ -172,7 +200,9 @@ def fetch_group_event(club_id: int, event_id: str) -> dict:
         resp = _session().get(loc, timeout=20)
     if resp.status_code != 200 or "/login" in resp.url:
         raise RuntimeError(f"Event page {url} returned HTTP {resp.status_code}")
-    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', resp.text, re.S)
+    m = re.search(
+        r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', resp.text, re.DOTALL
+    )
     if not m:
         raise RuntimeError(f"Event page {url}: no __NEXT_DATA__ payload")
     try:
@@ -180,9 +210,11 @@ def fetch_group_event(club_id: int, event_id: str) -> dict:
     except (KeyError, json.JSONDecodeError) as e:
         raise RuntimeError(f"Event page {url}: unexpected payload ({e})") from e
 
-    # New format: occurrence page (redirect target) has eventOccurrence
-    if "eventOccurrence" in pp:
-        occ = pp["eventOccurrence"]
+    # New format: occurrence page (redirect target) has eventOccurrence.
+    # Strava can send `eventOccurrence: null` (no next occurrence) — treat
+    # that as absent and fall through to the landing-page format below.
+    occ = pp.get("eventOccurrence")
+    if occ:
         startXY = occ.get("startXY") or {}
         return {
             "id": event_id,
