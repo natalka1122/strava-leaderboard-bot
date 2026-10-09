@@ -1,0 +1,10 @@
+# Editor-side companion to .gitattributes: stop editors from re-introducing
+# CRLF (or stripping the final newline) on save. Both rules below also match
+# the `trailing-whitespace` / `end-of-file-fixer` pre-commit hooks.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true

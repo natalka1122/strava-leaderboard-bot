@@ -19,18 +19,19 @@ import schedule
 
 from config import (
     CLUB_ID,
-    SCHEDULE_TIME,
-    SCHEDULE_DAY,
-    OUTPUT_DIR,
-    STRAVA_SESSION_COOKIE,
-    LEADERBOARD_MIN_RUNNERS,
-    LEADERBOARD_KM_CUTOFF,
     LEADERBOARD_FAILURE_MESSAGE,
+    LEADERBOARD_KM_CUTOFF,
+    LEADERBOARD_MIN_RUNNERS,
+    OUTPUT_DIR,
+    SCHEDULE_DAY,
+    SCHEDULE_TIME,
+    STRAVA_SESSION_COOKIE,
 )
-from strava_scraper import get_leaderboard_entries
+from cookie_health_check import guard_job, start_health_check
 from image_generator import generate
-from telegram_client import send_to_telegram, send_group_message
-from cookie_health_check import start_health_check
+from leaderboard_gif import generate_weekly_gif
+from strava_scraper import get_leaderboard_entries
+from telegram_client import send_group_message, send_to_telegram
 
 logging.basicConfig(
     level=logging.INFO,
@@ -69,7 +70,9 @@ def fetch_and_save(dry_run: bool = False) -> None:
 
     # 2. Apply dynamic cutoff: at least N, or all ≥ cutoff km
     cutoff_m = LEADERBOARD_KM_CUTOFF * 1000
-    km_cutoff_count = sum(1 for e in entries if (e.get("distance") or 0) >= cutoff_m)
+    km_cutoff_count = sum(
+        1 for e in entries if (e.get("distance") or 0) >= cutoff_m
+    )
     limit = max(LEADERBOARD_MIN_RUNNERS, km_cutoff_count)
     if len(entries) > limit:
         entries = entries[:limit]
@@ -106,6 +109,9 @@ def fetch_and_save(dry_run: bool = False) -> None:
         else:
             log.warning("⚠️ Image saved locally but Telegram send failed")
 
+    # 6. Build the weekly GIF from recorded snapshots (file only, no post)
+    generate_weekly_gif()
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Strava Leaderboard Bot")
@@ -120,7 +126,9 @@ def main() -> None:
     log.info("╔══════════════════════════════════════════╗")
     log.info("║   Strava Bot  –  Weekly Leaderboard     ║")
     log.info("║   Club: БББП  #%d                 ║", CLUB_ID)
-    log.info("║   Schedule: every %s at %s Budapest   ║", SCHEDULE_DAY, SCHEDULE_TIME)
+    log.info(
+        "║   Schedule: every %s at %s Budapest   ║", SCHEDULE_DAY, SCHEDULE_TIME
+    )
     log.info(
         "║   Telegram:  %s                    ║",
         "DRY-RUN" if args.dry_run else "enabled",
@@ -131,13 +139,17 @@ def main() -> None:
     start_health_check(dry_run=args.dry_run)
 
     # First run immediately — always dry-run to avoid spam on restart
-    fetch_and_save(dry_run=True)
+    guard_job(fetch_and_save, dry_run=True)()
 
     # Schedule weekly — respects the --dry-run flag for real runs
     getattr(schedule.every(), SCHEDULE_DAY).at(SCHEDULE_TIME).do(
-        fetch_and_save, dry_run=args.dry_run
+        guard_job(fetch_and_save, dry_run=args.dry_run)
     )
-    log.info("Scheduler active — next run: next %s at %s", SCHEDULE_DAY, SCHEDULE_TIME)
+    log.info(
+        "Scheduler active — next run: next %s at %s",
+        SCHEDULE_DAY,
+        SCHEDULE_TIME,
+    )
     while True:
         schedule.run_pending()
         time.sleep(60)

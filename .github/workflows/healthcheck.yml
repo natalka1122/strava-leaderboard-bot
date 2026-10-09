@@ -8,33 +8,60 @@ on:
 
 jobs:
   health:
-    name: Check stage + prod containers
+    name: "${{ matrix.dir }} container"
     runs-on: ubuntu-latest
-    # prod env accepts `main`-ref runs; stage env branch policy doesn't.
-    # Both envs share one server + deploy user (see Goal.md), so one key
-    # reaches both checkouts. If stage moves to its own server, split jobs
-    # and allow `main` in the stage env branch policy.
+    # prod env accepts `main`-ref runs; stage env branch policy doesn't, so a
+    # single `prod` environment serves both. Both envs live on one server with
+    # one deploy user (see Goal.md); split environments if that ever changes.
     environment: prod
+    strategy:
+      # Independent jobs: a failing stage must never hide prod's status.
+      fail-fast: false
+      matrix:
+        dir: [stage, prod]
     steps:
-      - name: Health check via SSH
+      - name: Check ${{ matrix.dir }}
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
-            set -e
-            for DIR in stage prod; do
-              cd /opt/strava-leaderboard-bot/$DIR
+            set -uo pipefail
+            DIR="${{ matrix.dir }}"
+            cd "/opt/strava-leaderboard-bot/$DIR" \
+              || { echo "::error::[$DIR] checkout missing"; exit 1; }
 
-              CID=$(docker compose ps -q strava-bot 2>/dev/null)
-              [ -n "$CID" ] || { echo "❌ [$DIR] container missing"; exit 1; }
+            CID=$(docker compose ps -q strava-bot 2>/dev/null)
+            if [ -z "$CID" ]; then
+              echo "::error::[$DIR] container missing"
+              exit 1
+            fi
 
-              STATUS=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$CID")
-              echo "[$DIR] container health: $STATUS"
-              [ "$STATUS" = "healthy" ] || { echo "❌ [$DIR] container not healthy"; exit 1; }
+            FMT='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}'
+            STATUS=$(docker inspect -f "$FMT" "$CID")
+            echo "[$DIR] container health: $STATUS"
 
-              docker compose logs --since 3h 2>&1 | grep -qE "Traceback|non-JSON response" \
-                && { echo "❌ [$DIR] crash or fetch degradation in recent logs"; exit 1; } \
-                || echo "✅ [$DIR] no crash/degradation markers in logs"
-            done
+            # Capture the last 3h of logs once; print them in full on failure
+            # so the traceback lands in the Actions log, not just a marker.
+            LOGS=$(docker compose logs --since 3h 2>&1 || true)
+            MARKERS=$(printf '%s\n' "$LOGS" \
+              | grep -nE "Traceback|non-JSON response" || true)
+
+            FAIL=0
+            if [ "$STATUS" != "healthy" ]; then
+              echo "::error::[$DIR] container not healthy: $STATUS"
+              FAIL=1
+            fi
+            if [ -n "$MARKERS" ]; then
+              echo "::error::[$DIR] crash markers in last 3h of logs"
+              echo "───── $DIR logs (last 3h) ─────"
+              printf '%s\n' "$LOGS"
+              echo "───── end $DIR logs ─────"
+              FAIL=1
+            fi
+
+            if [ "$FAIL" -eq 0 ]; then
+              echo "✅ [$DIR] healthy, no crash markers"
+            fi
+            exit "$FAIL"

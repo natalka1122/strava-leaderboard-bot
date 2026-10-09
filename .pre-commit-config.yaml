@@ -1,0 +1,82 @@
+# All tool config lives in pyproject.toml — this file only declares the hooks.
+# Every hook is `language: system`: the tools are baked into the devcontainer
+# image from pyproject.toml's [dependency-groups].dev (see the "Python tooling"
+# step in .devcontainer/Dockerfile), so there is nothing to build per-hook.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      # --- ordering: ruff lints (its "I" rules sort imports, replacing the
+      #     standalone isort) then ruff formats, then flake8 enforces wemake on
+      #     top of that.
+      # `--force-exclude` makes ruff honour `extend-exclude` for files passed
+      # explicitly on the command line (which is how pre-commit passes them).
+      - id: ruff-check
+        name: ruff (lint + import order + autofix)
+        entry: ruff check --force-exclude
+        language: system
+        types: [python]
+        files: ^(app|tests)/
+
+      - id: ruff-format
+        name: ruff (format, replaces black)
+        entry: ruff format --force-exclude
+        language: system
+        types: [python]
+        files: ^(app|tests)/
+
+      # wemake-python-styleguide is a flake8 plugin, not a ruff one. Config is
+      # read from pyproject.toml [tool.flake8] via the flake8-pyproject plugin —
+      # do NOT add `--config=` here, or flake8-pyproject will discard it.
+      # Runs after ruff on purpose: ruff has no WPS rules, and the WPS docs
+      # prescribe running ruff first.
+      - id: flake8
+        name: flake8 (wemake + dlint + cohesion)
+        entry: flake8
+        language: system
+        types: [python]
+        files: ^(app|tests)/
+
+      # mypy needs the whole package for context, so it ignores the changed-file
+      # list and always checks the full tree.
+      - id: mypy
+        name: mypy
+        entry: mypy app tests
+        language: system
+        pass_filenames: false
+        types: [python]
+        files: ^(app|tests)/
+
+      # TODO: vulture is installed but not wired up — it needs a confidence
+      # threshold and a whitelist decision (false positives on Flask/Telegram
+      # callbacks), which is a separate call. Intended shape:
+      #   - id: vulture
+      #     name: vulture (dead code)
+      #     entry: vulture app tests --min-confidence 80
+      #     language: system
+      #     pass_filenames: false
+      #     types: [python]
+      #     files: ^app/
+
+      # TODO: import-linter is installed but has no contracts to check — there
+      # is no [tool.importlinter] section anywhere, so `lint-imports` exits 1
+      # with "Could not read any configuration." and would block every commit
+      # touching app/. Enable once the layering is declared:
+      #   - id: import-linter
+      #     name: import-linter (architecture gate)
+      #     # --cache-dir keeps .import_linter_cache out of the repo tree
+      #     entry: >-
+      #       env PYTHONPATH=app lint-imports
+      #       --cache-dir /tmp/strava-import-linter-cache
+      #     language: system
+      #     pass_filenames: false
+      #     types: [python]
+      #     files: ^app/

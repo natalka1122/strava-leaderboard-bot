@@ -3,20 +3,24 @@
         "dockerfile": "Dockerfile",
         "context": "..",
         "args": {
-            "MY_OPENROUTER_API_KEY": "${localEnv:MY_OPENROUTER_API_KEY}"
+            "PI_VERSION": "v0.87.1"
         }
     },
+    "initializeCommand": "bash .devcontainer/initialize_command.sh",
     "mounts": [
         "source=${localEnv:GITHUB_SSH_DIR},target=/home/vscode/.ssh,type=bind,consistency=cached",
-        "source=${localEnv:HOME}/.config/gh_strava_leaderboard,target=/home/vscode/.config/gh,type=bind,consistency=cached",
-        "source=${localWorkspaceFolder}/.pi/agent/sessions,target=/home/vscode/.pi/agent/sessions,type=bind,consistency=cached"
+        "source=${localWorkspaceFolder}/.config/gh,target=/home/vscode/.config/gh,type=bind,consistency=cached",
+        "source=${localWorkspaceFolder}/.pi/agent/sessions,target=/home/vscode/.pi/agent/sessions,type=bind,consistency=cached",
+        "source=${localWorkspaceFolder}/.pi/agent/auth.json,target=/home/vscode/.pi/agent/auth.json,type=bind,consistency=cached",
+        "source=${localWorkspaceFolder}/.pi/agent/settings.json,target=/home/vscode/.pi/agent/settings.json,type=bind,consistency=cached"
     ],
     "containerEnv": {
         "TZ": "Europe/Budapest",
         "GIT_AUTHOR_EMAIL": "${localEnv:GIT_AUTHOR_EMAIL}",
         "GIT_AUTHOR_NAME": "${localEnv:GIT_AUTHOR_NAME}",
         "STRAVA_SESSION_COOKIE": "${localEnv:STRAVA_SESSION_COOKIE}",
-        "STRAVA_CLUB_ID": "${localEnv:STRAVA_CLUB_ID}"
+        "STRAVA_CLUB_ID": "${localEnv:STRAVA_CLUB_ID}",
+        "STRAVA_EVENTS_CLUB_ID": "${localEnv:STRAVA_EVENTS_CLUB_ID}"
     },
     "postStartCommand": "bash .devcontainer/post_start_command.sh",
     "customizations": {
@@ -24,17 +28,15 @@
             "extensions": [
                 "ms-python.python",
                 "ms-python.black-formatter",
-                "charliermarsh.ruff",
-                "janjoerke.jenkins-pipeline-linter-connector",
-                "mechatroner.rainbow-csv",
-                "ryu1kn.partial-diff",
-                "NicolasVuillamy.vscode-groovy-lint",
-                "ms-python.mypy-type-checker",
-                "ms-vscode.hexeditor",
                 "ms-python.flake8",
-                "ms-azuretools.vscode-containers"
+                "ryu1kn.partial-diff",
+                "ms-python.mypy-type-checker",
+                "johnny-zhao.pi-agent-studio"
             ],
             "settings": {
+                "[python]": {
+                    "editor.defaultFormatter": "ms-python.flake8"
+                },
                 "remote.localPortHost": "allInterfaces",
                 "remote.autoForwardPorts": false,
                 "mypy-type-checker.args": [
@@ -47,13 +49,11 @@
                     "reportUnusedImport": "warning",
                     "reportUnusedVariable": "warning"
                 },
-                "github.copilot.enable": {
-                    "*": false,
-                    "plaintext": false,
-                    "markdown": false,
-                    "scminput": false
-                },
-                "python.analysis.typeCheckingMode": "strict"
+                "python.analysis.typeCheckingMode": "strict",
+                "pi-agent-studio.disabledTools": [
+                    "subagent"
+                ],
+                "pi-agent-studio.ui": "webview"
             }
         }
     }

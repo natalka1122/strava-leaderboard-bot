@@ -7,11 +7,12 @@ occurrence enters a Reminder Window (lead L fires while remaining time is in
 (L-1 days, L days]). A missed window never fires late; the Reminder State
 File dedupes per (event, occurrence, lead).
 """
+
 import json
 import logging
 import os
 import random
-from datetime import datetime, timezone, timedelta, tzinfo
+from datetime import datetime, timedelta, timezone, tzinfo
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
@@ -35,13 +36,27 @@ log = logging.getLogger("event-reminders")
 STATE_FILE = os.path.join(OUTPUT_DIR, "event_reminder_state.json")
 
 WEEKDAYS_RU = (
-    "ПОНЕДЕЛЬНИК", "ВТОРНИК", "СРЕДА", "ЧЕТВЕРГ",
-    "ПЯТНИЦА", "СУББОТА", "ВОСКРЕСЕНЬЕ",
+    "ПОНЕДЕЛЬНИК",
+    "ВТОРНИК",
+    "СРЕДА",
+    "ЧЕТВЕРГ",
+    "ПЯТНИЦА",
+    "СУББОТА",
+    "ВОСКРЕСЕНЬЕ",
 )
 MONTHS_RU = (
-    "января", "февраля", "марта", "апреля",
-    "мая", "июня", "июля", "августа",
-    "сентября", "октября", "ноября", "декабря",
+    "января",
+    "февраля",
+    "марта",
+    "апреля",
+    "мая",
+    "июня",
+    "июля",
+    "августа",
+    "сентября",
+    "октября",
+    "ноября",
+    "декабря",
 )
 _IMG_EXTS = (".jpg", ".jpeg", ".png", ".webp")
 
@@ -59,13 +74,20 @@ def get_group_events() -> list[dict]:
     for ev_id in ids:
         try:
             events.append(fetch_group_event(EVENTS_CLUB_ID, ev_id))
-        except RuntimeError as e:
+        except Exception as e:  # one bad event must never kill the cycle
             log.warning("Skipping event %s: %s", ev_id, e)
     return events
 
 
-_WEEKDAYS = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-             "friday": 4, "saturday": 5, "sunday": 6}
+_WEEKDAYS = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
 _ORDINALS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5}
 
 
@@ -80,7 +102,9 @@ def _in_month_aligned(d: datetime, start: datetime, interval: int) -> bool:
     return months >= 0 and months % interval == 0
 
 
-def expand_occurrences(event: dict, now: datetime, horizon_days: int) -> list[datetime]:
+def expand_occurrences(
+    event: dict, now: datetime, horizon_days: int
+) -> list[datetime]:
     """Future occurrence datetimes of an event (timezone-aware, local zone).
 
     Uses the next occurrence (`occurrence_datetime`, as the site serves it)
@@ -100,7 +124,7 @@ def expand_occurrences(event: dict, now: datetime, horizon_days: int) -> list[da
 
     try:
         served = parse(event["occurrence_datetime"])
-    except (KeyError, ValueError):
+    except KeyError, ValueError:
         return []
 
     rule = (event.get("schedule") or {}).get("recurrenceRule") or {}
@@ -115,7 +139,7 @@ def expand_occurrences(event: dict, now: datetime, horizon_days: int) -> list[da
 
     try:
         start = parse(event["schedule"]["startTime"])
-    except (KeyError, ValueError):
+    except KeyError, ValueError:
         start = served
 
     horizon = now + timedelta(days=horizon_days)
@@ -130,13 +154,17 @@ def expand_occurrences(event: dict, now: datetime, horizon_days: int) -> list[da
         guard += 1
         if freq == "weekly":
             from_start = (d.date() - start.date()).days
-            phase_ok = from_start >= 0 and (interval == 1 or from_start % (7 * interval) == 0)
+            phase_ok = from_start >= 0 and (
+                interval == 1 or from_start % (7 * interval) == 0
+            )
             if d.weekday() in day_idx and phase_ok:
                 out.append(d)
         else:  # monthly
             nth = _ordinal_in_month(d)
             last_wd = d.day + 7 > _days_in_month(d)
-            ordinal_ok = (nth in ords_n and d.weekday() in day_idx) or (has_last and last_wd and d.weekday() in day_idx)
+            ordinal_ok = (nth in ords_n and d.weekday() in day_idx) or (
+                has_last and last_wd and d.weekday() in day_idx
+            )
             if ordinal_ok and _in_month_aligned(d, start, interval):
                 out.append(d)
         d += timedelta(days=1)
@@ -156,7 +184,9 @@ def _days_in_month(d: datetime) -> int:
 
 
 # ── Lead windows ────────────────────────────────────────
-def firing_leads(now: datetime, occurrence: datetime, lead_days: list[int]) -> list[int]:
+def firing_leads(
+    now: datetime, occurrence: datetime, lead_days: list[int]
+) -> list[int]:
     """Lead values whose window (L-1 days, L days] contains the remaining time.
 
     Called at the first check inside the window, so a lead fires exactly once
@@ -174,14 +204,16 @@ def load_state(now: datetime) -> list[dict]:
     try:
         with open(STATE_FILE) as f:
             rows = json.load(f)
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         log.warning("Reminder state file unreadable — starting fresh")
         return []
     live = []
     for r in rows:
         try:
-            occ = datetime.fromisoformat(str(r["occurrence"]).replace("Z", "+00:00"))
-        except (KeyError, ValueError):
+            occ = datetime.fromisoformat(
+                str(r["occurrence"]).replace("Z", "+00:00")
+            )
+        except KeyError, ValueError:
             continue
         if occ > now:
             live.append(r)
@@ -196,26 +228,36 @@ def save_state(rows: list[dict]) -> None:
     os.replace(tmp, STATE_FILE)
 
 
-def is_posted(rows: list[dict], event_id, occurrence: datetime, lead: int) -> bool:
+def is_posted(
+    rows: list[dict], event_id, occurrence: datetime, lead: int
+) -> bool:
     key = (str(event_id), occurrence.isoformat(), lead)
-    return any((r.get("event_id"), r.get("occurrence"), r.get("lead")) == key for r in rows)
+    return any(
+        (r.get("event_id"), r.get("occurrence"), r.get("lead")) == key
+        for r in rows
+    )
 
 
 # ── Photo pool ──────────────────────────────────────────
 def photo_pool() -> list[str]:
     if not os.path.isdir(EVENT_PHOTOS_DIR):
         return []
-    return sorted(n for n in os.listdir(EVENT_PHOTOS_DIR) if n.lower().endswith(_IMG_EXTS))
+    return sorted(
+        n for n in os.listdir(EVENT_PHOTOS_DIR) if n.lower().endswith(_IMG_EXTS)
+    )
 
 
 def pick_photo(pool: list[str], occurrence: datetime) -> str:
     """Occurrence-seeded pick: same photo for every lead of one occurrence,
-    restart-stable, different across occurrences."""
+    restart-stable, different across occurrences.
+    """
     return random.Random(occurrence.isoformat()).choice(pool)
 
 
 # ── Card ────────────────────────────────────────────────
-def build_reminder_card(photo_path: str, event: dict, occurrence: datetime) -> Image.Image:
+def build_reminder_card(
+    photo_path: str, event: dict, occurrence: datetime
+) -> Image.Image:
     """Photo with title / weekday+time / place overlaid.
 
     Minimal default layout — the photo workstream owns the styling seam here.
@@ -250,8 +292,18 @@ def build_reminder_card(photo_path: str, event: dict, occurrence: datetime) -> I
     overlay = Image.new("RGBA", (w, banner_h), (0, 0, 0, 160))
     img.paste(overlay, (0, h - banner_h), overlay)
     dr = ImageDraw.Draw(img)
-    dr.text((pad, h - banner_h + pad), title, fill=(255, 255, 255), font=_font(title_size, bold=True))
-    dr.text((pad, h - banner_h + pad + title_size + 8), when, fill=(255, 200, 120), font=_font(meta_size))
+    dr.text(
+        (pad, h - banner_h + pad),
+        title,
+        fill=(255, 255, 255),
+        font=_font(title_size, bold=True),
+    )
+    dr.text(
+        (pad, h - banner_h + pad + title_size + 8),
+        when,
+        fill=(255, 200, 120),
+        font=_font(meta_size),
+    )
     return img
 
 
@@ -263,7 +315,9 @@ def build_maps_url(event: dict) -> str:
     if lat is not None and lng is not None:
         return f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
     place = event.get("place") or ""
-    return f"https://www.google.com/maps/search/?api=1&query={quote(str(place))}"
+    return (
+        f"https://www.google.com/maps/search/?api=1&query={quote(str(place))}"
+    )
 
 
 def build_caption(event: dict, occurrence: datetime) -> str:
@@ -299,13 +353,23 @@ def build_caption(event: dict, occurrence: datetime) -> str:
 
 
 # ── Run ─────────────────────────────────────────────────
-def _post(event: dict, occurrence: datetime, lead: int, dry_run: bool, rows: list[dict]) -> bool:
+def _post(
+    event: dict,
+    occurrence: datetime,
+    lead: int,
+    dry_run: bool,
+    rows: list[dict],
+) -> bool:
     """Build + send one reminder. Returns True when state should be marked."""
     ev_id = event.get("id")
     pool = photo_pool()
     if not pool:
-        log.warning("EVENT_PHOTOS_DIR empty/unreadable (%s) — skipped reminder for event %s, lead %dd",
-                    EVENT_PHOTOS_DIR, ev_id, lead)
+        log.warning(
+            "EVENT_PHOTOS_DIR empty/unreadable (%s) — skipped reminder for event %s, lead %dd",
+            EVENT_PHOTOS_DIR,
+            ev_id,
+            lead,
+        )
         return False
 
     photo = os.path.join(EVENT_PHOTOS_DIR, pick_photo(pool, occurrence))
@@ -315,18 +379,38 @@ def _post(event: dict, occurrence: datetime, lead: int, dry_run: bool, rows: lis
     path = os.path.join(OUTPUT_DIR, f"reminder_{ev_id}_{stamp}_{lead}d.png")
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     card.save(path)
-    log.info("Reminder for event %s, lead %dd, occurrence %s → %s",
-             ev_id, lead, occurrence.isoformat(), path)
+    log.info(
+        "Reminder for event %s, lead %dd, occurrence %s → %s",
+        ev_id,
+        lead,
+        occurrence.isoformat(),
+        path,
+    )
 
     if dry_run:
-        log.info("[DRY-RUN] Would post to Telegram thread %s", EVENT_REMINDER_THREAD_ID or "main")
+        log.info(
+            "[DRY-RUN] Would post to Telegram thread %s",
+            EVENT_REMINDER_THREAD_ID or "main",
+        )
         return False
 
-    if send_to_telegram(path, caption=build_caption(event, occurrence), thread_id=EVENT_REMINDER_THREAD_ID):
+    if send_to_telegram(
+        path,
+        caption=build_caption(event, occurrence),
+        thread_id=EVENT_REMINDER_THREAD_ID,
+    ):
         log.info("✅ Reminder posted for event %s (lead %dd)", ev_id, lead)
-        rows.append({"event_id": str(ev_id), "occurrence": occurrence.isoformat(), "lead": lead})
+        rows.append(
+            {
+                "event_id": str(ev_id),
+                "occurrence": occurrence.isoformat(),
+                "lead": lead,
+            }
+        )
         return True
-    log.warning("Reminder send failed — retrying next cycle if still inside window")
+    log.warning(
+        "Reminder send failed — retrying next cycle if still inside window"
+    )
     return False
 
 
@@ -342,7 +426,7 @@ def run_event_reminders(dry_run: bool = False) -> None:
     now = datetime.now(timezone.utc)
     try:
         events = get_group_events()
-    except RuntimeError as e:
+    except Exception as e:  # never let a fetch failure crash the scheduler
         log.warning("Event reminder fetch failed: %s — skipping this cycle", e)
         return
 
@@ -355,7 +439,11 @@ def run_event_reminders(dry_run: bool = False) -> None:
                 continue  # already due/passed — lead missed, never fires late
             for lead in firing_leads(now, occ, EVENT_REMINDER_LEAD_DAYS):
                 if is_posted(rows, ev.get("id"), occ, lead):
-                    log.info("Reminder for event %s lead %dd already posted — skipping", ev.get("id"), lead)
+                    log.info(
+                        "Reminder for event %s lead %dd already posted — skipping",
+                        ev.get("id"),
+                        lead,
+                    )
                     continue
                 dirty = _post(ev, occ, lead, dry_run, rows) or dirty
     if dirty:

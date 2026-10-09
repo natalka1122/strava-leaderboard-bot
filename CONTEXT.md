@@ -35,6 +35,26 @@ _Avoid_: Error text
 - On expiry, the weekly run sends a **Leaderboard Failure Message** to the group chat
 - A **Bot Owner** receives expiry alerts directly via Telegram DM and is expected to refresh the cookie
 - On container restart, the first run is always a **Dry Run** — the scheduled weekly run posts for real
+- A **Cookie Health Check** tick also records a **Leaderboard Snapshot**
+- The week's **Leaderboard Snapshots** render into the **Weekly Leaderboard GIF**
+
+## Leaderboard History
+
+**Leaderboard Snapshot**:
+One append-only record of the club leaderboard at a point in time, captured on every **Cookie Health Check** tick (every 3h) and stored as a JSON line in `leaderboard_history.jsonl`. Raw rows are kept without the display cutoff.
+_Avoid_: poll, sample, dump
+
+**Leaderboard History**:
+The retained series of **Leaderboard Snapshots** (default 14 days) that the **Weekly Leaderboard GIF** is rendered from.
+_Avoid_: log, archive
+
+**Roster Freeze**:
+Rendering exactly the athletes present in the week's final snapshot set — top `LEADERBOARD_MIN_RUNNERS` ∪ everyone ≥ `LEADERBOARD_KM_CUTOFF` km — showing all of them from 0 km so rows never appear or disappear mid-animation.
+_Avoid_: stable list, fixed list
+
+**Weekly Leaderboard GIF**:
+An animated GIF built from a week of **Leaderboard Snapshots**, showing how the club leaderboard changed. Saved next to the weekly leaderboard PNG; not posted to Telegram unless enabled.
+_Avoid_: race, animation, video
 
 ## Event Reminders
 

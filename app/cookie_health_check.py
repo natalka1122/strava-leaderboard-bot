@@ -9,6 +9,7 @@ State machine:
   - Other error → strike 1 = log; strike 2 = alert
   - Once alerting, re-alert every cycle until 200
 """
+
 import logging
 
 import schedule
@@ -18,9 +19,10 @@ from config import (
     STRAVA_SESSION_COOKIE,
     TELEGRAM_ALERT_IDS,
 )
+from event_reminders import run_event_reminders
+from leaderboard_history import record_snapshot
 from strava_scraper import check_cookie
 from telegram_client import send_message
-from event_reminders import run_event_reminders
 
 log = logging.getLogger("cookie-health")
 
@@ -55,16 +57,17 @@ def _alert_owners(status: int) -> None:
 
 def _alert_degraded() -> None:
     """Send a Telegram DM to every Bot Owner about a non-JSON (HTML shell)
-    response — Strava rollout, not a cookie problem."""
+    response — Strava rollout, not a cookie problem.
+    """
     if not TELEGRAM_ALERT_IDS:
         log.warning("No TELEGRAM_ALERT_IDS configured — cannot alert")
         return
 
     message = (
-        f"⚠️ Strava leaderboard endpoint is degraded!\n\n"
-        f"Strava keeps returning HTML instead of the leaderboard JSON "
-        f"(A/B rollout). The weekly leaderboard will not be generated until "
-        f"this passes. No action needed with the cookie — monitor the server."
+        "⚠️ Strava leaderboard endpoint is degraded!\n\n"
+        "Strava keeps returning HTML instead of the leaderboard JSON "
+        "(A/B rollout). The weekly leaderboard will not be generated until "
+        "this passes. No action needed with the cookie — monitor the server."
     )
 
     for owner_id in TELEGRAM_ALERT_IDS:
@@ -106,7 +109,9 @@ def run_health_check() -> None:
             _alert_owners(status)
             _is_alerting = True
         else:
-            log.warning("Cookie still expired (HTTP %d) — re-alerting owners", status)
+            log.warning(
+                "Cookie still expired (HTTP %d) — re-alerting owners", status
+            )
             _alert_owners(status)
         return
 
@@ -114,7 +119,9 @@ def run_health_check() -> None:
         # HTML instead of JSON — Strava rollout, fetch degraded (not cookie)
         _consecutive_failures += 1
         if not _is_alerting:
-            log.warning("Leaderboard endpoint serving HTML instead of JSON — alerting owners")
+            log.warning(
+                "Leaderboard endpoint serving HTML instead of JSON — alerting owners"
+            )
             _alert_degraded()
             _is_alerting = True
         else:
@@ -126,7 +133,10 @@ def run_health_check() -> None:
     _consecutive_failures += 1
     if _is_alerting:
         # Already in alert mode — keep notifying every cycle
-        log.warning("Cookie still appears expired (HTTP %d) — re-alerting owners", status)
+        log.warning(
+            "Cookie still appears expired (HTTP %d) — re-alerting owners",
+            status,
+        )
         _alert_owners(status)
     elif _consecutive_failures >= 2:
         # Second consecutive non-definite error — promote to alert
@@ -144,11 +154,37 @@ def run_health_check() -> None:
         )
 
 
-def start_health_check(dry_run: bool = False) -> None:
+def guard_job(job, **job_kwargs):
+    """Wrap a scheduled job so an unexpected error cannot kill the scheduler.
+
+    Errors are logged without a traceback on purpose: the 3-hourly Server
+    Health Check fails on any ``Traceback`` line in the container logs.
+    """
+
+    def run() -> None:
+        try:
+            job(**job_kwargs)
+        except Exception as exc:
+            # No traceback on purpose — the health check greps for it.
+            log.error(  # noqa: TRY400
+                "Scheduled job %s failed: %r",
+                getattr(job, "__name__", job),
+                exc,
+            )
+
+    return run
+
+
+def start_health_check(*, dry_run: bool = False) -> None:
     """Start the cookie health check loop. Runs immediately, then on schedule.
-    Event reminders ride the same cadence."""
+
+    Event reminders ride the same cadence.
+    """
     if COOKIE_CHECK_INTERVAL_MINUTES <= 0:
-        log.warning("COOKIE_CHECK_INTERVAL_MINUTES is %d — health check disabled", COOKIE_CHECK_INTERVAL_MINUTES)
+        log.warning(
+            "COOKIE_CHECK_INTERVAL_MINUTES is %d — health check disabled",
+            COOKIE_CHECK_INTERVAL_MINUTES,
+        )
         return
 
     log.info(
@@ -156,11 +192,18 @@ def start_health_check(dry_run: bool = False) -> None:
         COOKIE_CHECK_INTERVAL_MINUTES,
     )
 
-    # First check immediately
-    run_health_check()
-    run_event_reminders(dry_run=dry_run)
+    # Wrap every job so a failure can never take the process down.
+    checks = (
+        guard_job(run_health_check),
+        guard_job(run_event_reminders, dry_run=dry_run),
+        guard_job(record_snapshot),
+    )
 
-    # Schedule recurring checks
-    schedule.every(COOKIE_CHECK_INTERVAL_MINUTES).minutes.do(run_health_check)
-    schedule.every(COOKIE_CHECK_INTERVAL_MINUTES).minutes.do(run_event_reminders, dry_run=dry_run)
+    # First run immediately
+    for job in checks:
+        job()
+
+    # Then on the recurring cadence
+    for job in checks:
+        schedule.every(COOKIE_CHECK_INTERVAL_MINUTES).minutes.do(job)
     log.info("Next health check in %d minute(s)", COOKIE_CHECK_INTERVAL_MINUTES)
