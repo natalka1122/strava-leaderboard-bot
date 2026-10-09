@@ -7,26 +7,28 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  stage:
-    name: stage container
+  health:
+    name: "${{ matrix.dir }} container"
     runs-on: ubuntu-latest
-    # The schedule only ever runs on main, and the stage env's branch policy
-    # rejects main — so borrow the prod environment there (both envs share one
-    # server + deploy key). On develop, use the real stage environment.
-    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'stage' }}
-    env:
-      DIR: stage
+    # prod env accepts `main`-ref runs; stage env branch policy doesn't, so a
+    # single `prod` environment serves both. Both envs live on one server with
+    # one deploy user (see Goal.md); split environments if that ever changes.
+    environment: prod
+    strategy:
+      # Independent jobs: a failing stage must never hide prod's status.
+      fail-fast: false
+      matrix:
+        dir: [stage, prod]
     steps:
-      - name: Check stage
+      - name: Check ${{ matrix.dir }}
         uses: appleboy/ssh-action@v1.2.2
-        # Shared by both jobs via the YAML anchor on `with`.
-        with: &check
+        with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: DIR
           script: |
             set -uo pipefail
+            DIR="${{ matrix.dir }}"
             cd "/opt/strava-leaderboard-bot/$DIR" \
               || { echo "::error::[$DIR] checkout missing"; exit 1; }
 
@@ -36,9 +38,9 @@ jobs:
               exit 1
             fi
 
-            STATUS=$(docker inspect --format \
-              '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$CID")
-            echo "[$DIR] container health: ${STATUS:-none}"
+            FMT='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}'
+            STATUS=$(docker inspect -f "$FMT" "$CID")
+            echo "[$DIR] container health: $STATUS"
 
             # Capture the last 3h of logs once; print them in full on failure
             # so the traceback lands in the Actions log, not just a marker.
@@ -63,17 +65,3 @@ jobs:
               echo "✅ [$DIR] healthy, no crash markers"
             fi
             exit "$FAIL"
-
-  prod:
-    name: prod container
-    runs-on: ubuntu-latest
-    # prod env permits main only — and prod must never be checked from a
-    # develop dispatch, so gate the whole job to main.
-    environment: prod
-    if: github.ref == 'refs/heads/main'
-    env:
-      DIR: prod
-    steps:
-      - name: Check prod
-        uses: appleboy/ssh-action@v1.2.2
-        with: *check
