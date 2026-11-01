@@ -17,6 +17,7 @@
     ],
     "containerEnv": {
         "TZ": "Europe/Budapest",
+        "PATH": "/workspaces/strava/.venv/bin:${containerEnv:PATH}",
         "GIT_AUTHOR_EMAIL": "${localEnv:GIT_AUTHOR_EMAIL}",
         "GIT_AUTHOR_NAME": "${localEnv:GIT_AUTHOR_NAME}",
         "STRAVA_SESSION_COOKIE": "${localEnv:STRAVA_SESSION_COOKIE}",
@@ -24,6 +25,7 @@
         "STRAVA_EVENTS_CLUB_ID": "${localEnv:STRAVA_EVENTS_CLUB_ID}",
         "PI_MEMORY_SUMMARIZE_TRANSITIONS": "1"
     },
+    "postCreateCommand": "bash .devcontainer/setup_python_env.sh",
     "postStartCommand": "bash .devcontainer/post_start_command.sh",
     "customizations": {
         "vscode": {
@@ -46,7 +48,7 @@
                     "--strict",
                     "--follow-untyped-imports"
                 ],
-                "mypy-type-checker.executable": "/usr/local/bin/mypy",
+                "mypy-type-checker.executable": "/workspaces/strava/.venv/bin/mypy",
                 "python.analysis.diagnosticSeverityOverrides": {
                     "reportUnusedImport": "warning",
                     "reportUnusedVariable": "warning"

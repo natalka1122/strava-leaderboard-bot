@@ -45,21 +45,12 @@ RUN python3 -m pip install --ignore-installed --break-system-packages pip
 # first (it cannot install itself from the group it reads).
 RUN python3 -m pip install --no-cache-dir --break-system-packages uv
 
-# App runtime deps — the same file the production image installs (repo-root
-# Dockerfile). Without these `pytest` cannot even import the app modules, so
-# tests/mypy are unrunnable in the devcontainer.
-COPY app/requirements.txt /tmp/requirements.txt
-RUN uv pip install --system --break-system-packages --no-cache \
-        -r /tmp/requirements.txt && \
-    rm -f /tmp/requirements.txt
-
-# Python tooling — versions/deps declared once in pyproject.toml
-# ([dependency-groups].dev), not here. Copied rather than bind-mounted so the
-# layer invalidates whenever the group changes.
-COPY pyproject.toml /tmp/pyproject.toml
-RUN cd /tmp && \
-    uv pip install --system --break-system-packages --no-cache --group dev && \
-    rm -f /tmp/pyproject.toml
+# Python deps (app runtime + the pyproject dev group) are deliberately NOT
+# installed here. They go into a repo-local .venv at container-create time —
+# see .devcontainer/setup_python_env.sh and the postCreateCommand. A project
+# venv is what pi-lens, pyright, VS Code and the tests all resolve to;
+# installing system-wide left them with no detectable interpreter and
+# type-checking against one that lacked the app deps.
 
 # Pi Coding Agent + agent-browser runtime — user scope, installed AS `vscode`.
 ARG PI_VERSION=v1.4.0

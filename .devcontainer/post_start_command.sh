@@ -30,8 +30,9 @@ fi
 
 # Install pre-commit git hooks (config + versioned in repo). Idempotent: re-runs
 # on every container start, so hooks survive re-clones/rebase and re-install
-# after .git/hooks is wiped. All hooks are `language: system` (tools already on
-# PATH via the pyproject dev group), so no environment build is needed.
+# after .git/hooks is wiped. All hooks are `language: system` and resolve their
+# tools from the .venv on PATH (see setup_python_env.sh), so no environment
+# build is needed.
 if command -v pre-commit >/dev/null 2>&1; then
     if ! PRE_COMMIT_OUT=$(pre-commit install 2>&1); then
         echo "WARN: pre-commit install failed:" >&2

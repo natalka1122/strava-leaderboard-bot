@@ -1,13 +1,13 @@
 # Dev toolchain + tool config. Single source of truth for the Python packages
-# baked into the devcontainer image (see the "Python tooling" step in
-# .devcontainer/Dockerfile).
+# installed into the devcontainer's repo-local .venv (see
+# .devcontainer/setup_python_env.sh).
 #
 # This repo is not a distributable package, so there is deliberately no
 # [project] table; only a PEP 735 dependency group. Runtime (app) deps live
 # separately in app/requirements.txt.
 #
-# Refresh inside the container:
-#   uv pip install --system --break-system-packages --group dev
+# Refresh inside the container (or just re-run the setup script):
+#   uv pip install --python .venv/bin/python -r app/requirements.txt --group dev
 #
 # `uv` itself is bootstrapped with pip in the Dockerfile (chicken-and-egg), so
 # it is not listed here.
@@ -214,6 +214,12 @@ ignore_missing_imports = true
 # those tools replaced were invisible to static analysis.
 [tool.pyright]
 extraPaths = ["app"]
+# Point pyright at the repo-local venv (created by
+# .devcontainer/setup_python_env.sh) so it resolves third-party deps like
+# `requests` from there. Without this, pyright launched from a bare/other
+# interpreter reports reportMissingModuleSource on every app dep.
+venvPath = "."
+venv = ".venv"
 
 # ---------------------------------------------------------------------------
 # pytest
