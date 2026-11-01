@@ -21,7 +21,8 @@
         "GIT_AUTHOR_NAME": "${localEnv:GIT_AUTHOR_NAME}",
         "STRAVA_SESSION_COOKIE": "${localEnv:STRAVA_SESSION_COOKIE}",
         "STRAVA_CLUB_ID": "${localEnv:STRAVA_CLUB_ID}",
-        "STRAVA_EVENTS_CLUB_ID": "${localEnv:STRAVA_EVENTS_CLUB_ID}"
+        "STRAVA_EVENTS_CLUB_ID": "${localEnv:STRAVA_EVENTS_CLUB_ID}",
+        "PI_MEMORY_SUMMARIZE_TRANSITIONS": "1"
     },
     "postStartCommand": "bash .devcontainer/post_start_command.sh",
     "customizations": {
