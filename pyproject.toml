@@ -13,24 +13,28 @@
 # it is not listed here.
 
 [dependency-groups]
+# Pinned with `==` on purpose. The lint gate is only meaningful if the tools
+# behind it are reproducible: an unpinned rebuild once pulled a newer ruff/WPS
+# and flipped the whole tree from green to ~200 findings with no code change.
+# Bump a pin deliberately (and re-baseline below) rather than by rebuilding.
 dev = [
     # pre-commit framework + the hooks declared in .pre-commit-config.yaml
-    "pre-commit",
-    "ruff",                     # formatting + fast lint
-    "flake8",                   # host for the plugins below
-    "flake8-pyproject",         # lets flake8 read [tool.flake8] from this file
-    "wemake-python-styleguide", # WPS checks
-    "dlint",                    # DUO checks
-    "cohesion",                 # H601 module cohesion
-    "vulture",                  # dead code
-    "import-linter",
+    "pre-commit==4.7.0",
+    "ruff==0.17.3",                     # formatting + fast lint
+    "flake8==7.5.0",                    # host for the plugins below
+    "flake8-pyproject==1.2.4",          # lets flake8 read [tool.flake8] from here
+    "wemake-python-styleguide==1.8.1",  # WPS checks
+    "dlint==0.17.0",                    # DUO checks
+    "cohesion==1.2.0",                  # H601 module cohesion
+    "vulture==2.16",                    # dead code
+    "import-linter==2.15",
 
     # typing + tests
-    "mypy",
-    "pytest",
-    "pytest-cov",
-    "pytest-asyncio",
-    "pytest-xdist",
+    "mypy==2.4.1",
+    "pytest==9.2.0",
+    "pytest-cov==7.1.0",
+    "pytest-asyncio==1.4.1.post1",
+    "pytest-xdist==3.8.0",
 ]
 
 # ---------------------------------------------------------------------------
@@ -116,6 +120,21 @@ convention = "pep257"
 # Tests lean on literals, long test names, and assert-style helpers.
 "tests/*.py" = ["D", "PLR2004", "S101"]
 
+# --- Legacy baseline (ratchet) ---------------------------------------------
+# app/ and tests/ predate the ruff + WPS gate and are not clean yet. Each entry
+# names only the rules that file currently trips, so every other rule — and
+# every new file — stays enforced. Shrink a list as a file is fixed; delete the
+# entry once it is clean. The WPS half of the baseline lives in
+# [tool.flake8].per-file-ignores below.
+"app/bot.py" = ["D103", "D205", "D400", "DTZ005", "EXE001", "FBT001", "FBT002", "PTH103", "PTH118", "PTH202", "RUF001", "TRY400"]
+"app/cookie_health_check.py" = ["D205", "E501", "PLR2004", "PLW0603", "PLW2901"]
+"app/event_reminders.py" = ["C901", "D103", "D205", "D401", "E501", "FBT001", "FBT002", "FURB162", "PLR2004", "PTH103", "PTH105", "PTH110", "PTH112", "PTH118", "PTH120", "PTH123", "PTH208", "RUF001", "S311"]
+"app/image_generator.py" = ["D103", "FBT001", "FBT002", "FBT003", "N806", "PLR0913", "PLR2004", "PTH100", "PTH118", "PTH120", "RUF001", "TRY300"]
+"app/strava_scraper.py" = ["D103", "D205", "E501", "N806", "PLR2004", "S101", "TRY003", "TRY300"]
+"app/telegram_client.py" = ["D205", "D401", "PLR2004", "PTH123", "TRY300", "TRY400"]
+"tests/test_event_reminders.py" = ["E501", "N802", "PLC0415", "PT009", "PTH100", "PTH118", "PTH120", "PTH123"]
+"tests/test_scraper.py" = ["PLC0415", "PT009", "PTH100", "PTH118", "PTH120"]
+
 [tool.ruff.format]
 # ruff format replaces black entirely — same role, one tool fewer.
 quote-style = "double"
@@ -140,7 +159,36 @@ max-line-length = 80
 select = "WPS,E99,DUO,H601"
 extend-exclude = ".venv,.pi,node_modules,leaderboard_output"
 # WPS432 = magic numbers; tests are nothing but magic numbers.
-per-file-ignores = "tests/*.py: WPS432"
+#
+# --- Legacy baseline (ratchet) ---------------------------------------------
+# Same idea as [tool.ruff.lint.per-file-ignores]: each file names only the WPS
+# rules it currently trips, so everything else (and every new file) stays
+# enforced. Shrink and delete entries as files get cleaned up. flake8-pyproject
+# stringifies this whole value, hence flake8's native, newline-separated
+# `path: CODES` syntax rather than TOML arrays.
+# NOTE: no leading indentation and no `#` comments inside the value — TOML
+# keeps it verbatim, flake8 matches patterns literally, and any non-`pattern:
+# codes` line makes flake8 abort with "Expected per-file-ignores to be a
+# mapping". Also, flake8 (unlike ruff) applies only the *most specific* matching
+# pattern, not a union, so each test file repeats WPS432 instead of inheriting
+# it from tests/*.py.
+per-file-ignores = """
+tests/*.py: WPS432
+app/bot.py: WPS111,WPS210,WPS213,WPS231,WPS432,WPS453,WPS457
+app/config.py: WPS111,WPS226,WPS407
+app/cookie_health_check.py: WPS121,WPS122,WPS213,WPS231,WPS420,WPS430,WPS432,WPS504
+app/event_reminders.py: DUO102,WPS110,WPS111,WPS202,WPS210,WPS221,WPS231,WPS237,WPS336,WPS407,WPS408,WPS430,WPS432
+app/image_generator.py: WPS111,WPS204,WPS210,WPS211,WPS213,WPS221,WPS226,WPS229,WPS231,WPS237,WPS335,WPS407,WPS430,WPS432
+app/leaderboard_gif.py: WPS110,WPS210,WPS213,WPS221,WPS226,WPS234,WPS237,WPS426,WPS432,WPS504
+app/leaderboard_history.py: WPS210
+app/strava_scraper.py: WPS110,WPS111,WPS210,WPS221,WPS226,WPS229,WPS231,WPS232,WPS336,WPS432,WPS505
+app/telegram_client.py: WPS111,WPS229,WPS232,WPS432
+tests/test_event_reminders.py: WPS432,H601,WPS110,WPS111,WPS114,WPS201,WPS210,WPS221,WPS226,WPS458,WPS515
+tests/test_leaderboard_gif.py: WPS432,WPS202,WPS226
+tests/test_leaderboard_history.py: WPS432,WPS111,WPS202,WPS218,WPS226,WPS336,WPS407,WPS441
+tests/test_resilience.py: WPS432,WPS118,WPS430
+tests/test_scraper.py: WPS432,H601,WPS111,WPS114,WPS221,WPS226,WPS338,WPS458
+"""
 
 # ---------------------------------------------------------------------------
 # mypy
