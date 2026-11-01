@@ -283,9 +283,12 @@ class ScraperParseTest(unittest.TestCase):
                 },
             },
         }
-        nd = json.dumps({"props": {"pageProps": {"eventOccurrence": occ}}})
+        next_data = json.dumps(
+            {"props": {"pageProps": {"eventOccurrence": occ}}}
+        )
         html = (
-            f'<script id="__NEXT_DATA__" type="application/json">{nd}</script>'
+            '<script id="__NEXT_DATA__" type="application/json">'
+            f"{next_data}</script>"
         )
         fake = mock.Mock()
         fake.status_code = 200
