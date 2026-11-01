@@ -25,8 +25,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
-        # v5.0.0 - SHA-pinned to satisfy zizmor unpinned-uses
+        # v5.0.0 - SHA-pinned to satisfy zizmor unpinned-uses. No git push
+        # happens here, so don't leave the checkout token in .git/config
+        # (zizmor artipacked).
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         # v6.0.0 - SHA-pinned; v6 is the first line that knows Python 3.14
