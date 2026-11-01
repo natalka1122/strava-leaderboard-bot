@@ -204,3 +204,26 @@ tests/test_scraper.py: WPS432,H601,WPS111,WPS114,WPS221,WPS226,WPS338,WPS458
 mypy_path = "app"
 explicit_package_bases = true
 ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# pyright / basedpyright (the editor LSP)
+# ---------------------------------------------------------------------------
+# The third declaration of the same `app` source root (ruff `src`, mypy
+# `mypy_path`, pytest `pythonpath`). Without it the editor flags every
+# `import strava_scraper` in tests/ as unresolved, because the sys.path hacks
+# those tools replaced were invisible to static analysis.
+[tool.pyright]
+extraPaths = ["app"]
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+# `pythonpath` is the native replacement for the old tests/conftest.py sys.path
+# bootstrap (and the per-file sys.path.insert copies in two test modules): it
+# puts the flat `app/` modules on sys.path before collection, matching the
+# `app` source root declared for ruff, mypy and pyright above.
+# `asyncio_default_fixture_loop_scope` pins the loop scope pytest-asyncio warns
+# about when it is unset.
+[tool.pytest.ini_options]
+pythonpath = ["app"]
+asyncio_default_fixture_loop_scope = "function"

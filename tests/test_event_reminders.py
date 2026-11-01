@@ -3,15 +3,10 @@
 import json
 import os
 import shutil
-import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app")
-)
 
 import event_reminders as er
 

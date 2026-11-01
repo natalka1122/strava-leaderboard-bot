@@ -1,13 +1,7 @@
 """Tests for scraper health logic: cookie check degradation detection."""
 
-import os
-import sys
 import unittest
 from unittest import mock
-
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app")
-)
 
 
 class CheckCookieTest(unittest.TestCase):
