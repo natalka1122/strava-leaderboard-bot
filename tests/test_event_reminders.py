@@ -1,10 +1,10 @@
 """Tests for event_reminders money logic: lead windows, state dedupe, photo picks."""
 
+import json
 import os
 import shutil
 import sys
 import tempfile
-import json
 import unittest
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -40,7 +40,9 @@ class FiringLeadsTest(unittest.TestCase):
         # window is (L-1, L] — the lower bound is excluded
         self.assertEqual(er.firing_leads(NOW, occ(6), [7]), [])
         self.assertEqual(er.firing_leads(NOW, occ(0), [1]), [])
-        self.assertEqual(er.firing_leads(NOW, occ(6), [14, 7, 1]), [])  # (13,14]? no
+        self.assertEqual(
+            er.firing_leads(NOW, occ(6), [14, 7, 1]), []
+        )  # (13,14]? no
 
     def test_beyond_L_does_not_fire(self):
         self.assertEqual(er.firing_leads(NOW, occ(8), [7]), [])
@@ -71,7 +73,9 @@ class StateTest(unittest.TestCase):
     def test_roundtrip_and_dedupe(self):
         rows = er.load_state(NOW)
         self.assertEqual(rows, [])
-        er.save_state([{"event_id": "1", "occurrence": occ(2).isoformat(), "lead": 1}])
+        er.save_state(
+            [{"event_id": "1", "occurrence": occ(2).isoformat(), "lead": 1}]
+        )
         rows = er.load_state(NOW)
         self.assertTrue(er.is_posted(rows, "1", occ(2), 1))
         self.assertFalse(er.is_posted(rows, "1", occ(2), 7))
@@ -125,7 +129,9 @@ class PhotoPoolTest(unittest.TestCase):
         for name in ("1.jpg", "2.jpg", "3.jpg"):
             open(os.path.join(self.tmp, name), "w").close()
         pool = er.photo_pool()
-        self.assertEqual(er.pick_photo(pool, occ(3)), er.pick_photo(pool, occ(3)))
+        self.assertEqual(
+            er.pick_photo(pool, occ(3)), er.pick_photo(pool, occ(3))
+        )
         self.assertIn(er.pick_photo(pool, occ(3.7)), pool)
         self.assertIn(er.pick_photo(pool, occ(5.1)), pool)
 
@@ -217,7 +223,9 @@ class ExpandOccurrencesTest(unittest.TestCase):
                 },
             },
         }
-        now = datetime(2026, 1, 20, tzinfo=timezone.utc)  # past the first Fridays
+        now = datetime(
+            2026, 1, 20, tzinfo=timezone.utc
+        )  # past the first Fridays
         got = er.expand_occurrences(ev, now, 14)
         self.assertTrue(got)
         self.assertTrue(all(o.tzinfo is not None for o in got))
@@ -229,8 +237,9 @@ class ScraperParseTest(unittest.TestCase):
     """Parsing of the SSR pages (mocked transport)."""
 
     def test_event_ids_from_club_page(self):
+        from unittest import mock
+
         from strava_scraper import fetch_group_event_ids
-        import unittest.mock as mock
 
         html = (
             '<div data-react-props="&quot;appContext&quot;:{&quot;clubId&quot;:47046,'
@@ -242,11 +251,14 @@ class ScraperParseTest(unittest.TestCase):
         fake.text = html
         with mock.patch("strava_scraper._session") as sess:
             sess.return_value.get.return_value = fake
-            self.assertEqual(fetch_group_event_ids(47046), ["2116323", "2119999"])
+            self.assertEqual(
+                fetch_group_event_ids(47046), ["2116323", "2119999"]
+            )
 
     def test_event_ids_empty(self):
+        from unittest import mock
+
         from strava_scraper import fetch_group_event_ids
-        import unittest.mock as mock
 
         fake = mock.Mock()
         fake.status_code = 200
@@ -257,8 +269,9 @@ class ScraperParseTest(unittest.TestCase):
             self.assertEqual(fetch_group_event_ids(47046), [])
 
     def test_event_detail_from_next_data(self):
+        from unittest import mock
+
         from strava_scraper import fetch_group_event
-        import unittest.mock as mock, json as _json
 
         occ = {
             "title": "SZIGET RUN 5K",
@@ -276,12 +289,12 @@ class ScraperParseTest(unittest.TestCase):
             },
         }
         nd = json.dumps({"props": {"pageProps": {"eventOccurrence": occ}}})
-        html = f'<script id="__NEXT_DATA__" type="application/json">{nd}</script>'
+        html = (
+            f'<script id="__NEXT_DATA__" type="application/json">{nd}</script>'
+        )
         fake = mock.Mock()
         fake.status_code = 200
-        fake.url = (
-            "https://www.strava.com/clubs/47046/group_events/2116323/occurrences/x"
-        )
+        fake.url = "https://www.strava.com/clubs/47046/group_events/2116323/occurrences/x"
         fake.text = html
         with mock.patch("strava_scraper._session") as sess:
             sess.return_value.get.return_value = fake

@@ -34,9 +34,7 @@ def test_null_event_occurrence_falls_back_instead_of_crashing():
         "event": {"occurrences": [{"title": "Tuesday Run", "address": "Park"}]},
     }
     with mock.patch.object(ss, "_session") as session:
-        session.return_value.get.return_value = _ok_response(
-            _next_data(props)
-        )
+        session.return_value.get.return_value = _ok_response(_next_data(props))
         event = ss.fetch_group_event(47046, "1")
     assert event["title"] == "Tuesday Run"
     assert event["place"] == "Park"
