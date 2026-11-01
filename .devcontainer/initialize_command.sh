@@ -32,7 +32,7 @@ echo "wrote canonical settings to ${SETTINGS_OUT}"
 #    (both are bind-mount sources): a missing dir would make Docker fabricate a
 #    root-owned one that blocks vscode writes. Empty = valid first-run state,
 #    so no fail-loud here (unlike SSH).
-mkdir -p .config/gh .pi/agent/sessions
+mkdir -p .config/gh .pi/agent/sessions .memory
 
 # 3. Auth
 umask 177

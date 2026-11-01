@@ -5,12 +5,16 @@
   "theme": "dark",
   "packages": [
     "npm:@earendil-works/pi-ai",
-    "npm:pi-mcp-adapter",
     "npm:pi-matt-pocock-skills",
     "npm:pi-web-access",
     "npm:pi-caveman",
     "npm:pi-agent-browser-native",
     "npm:cc-safety-net",
-    "npm:pi-lens"
+    "npm:pi-lens",
+    "npm:@juicesharp/rpiv-ask-user-question",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:pi-simplify",
+    "npm:@moyai/pi-session-hoarder",
+    "npm:pi-memory"
   ]
 }

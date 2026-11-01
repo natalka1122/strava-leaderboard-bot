@@ -34,6 +34,9 @@ Thumbs.db
 # Pi coding agent (credentials, sessions, skills)
 .pi/
 
+# Pi agent long-term memory (bind-mounted to ~/.pi/agent/memory)
+.memory/
+
 # Per-workspace gh CLI credentials (mounted into container as ~/.config/gh)
 .config/gh/
 

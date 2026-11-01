@@ -3,7 +3,7 @@
         "dockerfile": "Dockerfile",
         "context": "..",
         "args": {
-            "PI_VERSION": "v0.87.1"
+            "PI_VERSION": "v1.4.0"
         }
     },
     "initializeCommand": "bash .devcontainer/initialize_command.sh",
@@ -12,7 +12,8 @@
         "source=${localWorkspaceFolder}/.config/gh,target=/home/vscode/.config/gh,type=bind,consistency=cached",
         "source=${localWorkspaceFolder}/.pi/agent/sessions,target=/home/vscode/.pi/agent/sessions,type=bind,consistency=cached",
         "source=${localWorkspaceFolder}/.pi/agent/auth.json,target=/home/vscode/.pi/agent/auth.json,type=bind,consistency=cached",
-        "source=${localWorkspaceFolder}/.pi/agent/settings.json,target=/home/vscode/.pi/agent/settings.json,type=bind,consistency=cached"
+        "source=${localWorkspaceFolder}/.pi/agent/settings.json,target=/home/vscode/.pi/agent/settings.json,type=bind,consistency=cached",
+        "source=${localWorkspaceFolder}/.memory,target=/home/vscode/.pi/agent/memory,type=bind,consistency=cached"
     ],
     "containerEnv": {
         "TZ": "Europe/Budapest",
